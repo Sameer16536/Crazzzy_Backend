@@ -1,0 +1,65 @@
+# ────────────────────────────────────────────────────────────────────────────
+# Crazzzy.in — Apache .htaccess for cPanel/Passenger Node.js Subpath Proxying
+#
+# Place this file in your domain's public_html root (or wherever Apache serves
+# the site from).  The Node.js app runs under a *subdirectory* application
+# defined in cPanel's "Setup Node.js App" at path "/api".
+#
+# HOW THIS WORKS:
+#   • Requests to /api/* are internally handed to Phusion Passenger.
+#   • Passenger binds to a Unix socket and forwards them to app.js.
+#   • Everything else (HTML, assets) is served normally by Apache.
+# ────────────────────────────────────────────────────────────────────────────
+
+Options -MultiViews
+DirectoryIndex index.html
+
+# Enable mod_rewrite
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # ── Security Headers ─────────────────────────────────────────────────────
+  # (Helmet adds these from Node; Apache adds them as a safety net for static)
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # ── Redirect HTTP → HTTPS ─────────────────────────────────────────────────
+  RewriteCond %{HTTPS} off
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # ── Passenger: Let Node.js handle ALL /api/* requests ───────────────────
+  # The cPanel "Setup Node.js App" panel generates a PassengerBaseURI line
+  # in the vhost config automatically.  The rules below ensure mod_rewrite
+  # does NOT strip the /api prefix before Passenger sees the request.
+  RewriteCond %{REQUEST_URI} ^/api [NC]
+  RewriteRule ^ - [L]
+
+  # ── SPA Fallback (if hosting a React/Next.js frontend too) ───────────────
+  # Remove or modify if frontend is hosted separately.
+  # RewriteCond %{REQUEST_FILENAME} !-f
+  # RewriteCond %{REQUEST_FILENAME} !-d
+  # RewriteRule ^ /index.html [L]
+
+</IfModule>
+
+# ── Static Asset Caching ──────────────────────────────────────────────────────
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpeg  "access plus 1 month"
+  ExpiresByType image/png   "access plus 1 month"
+  ExpiresByType image/webp  "access plus 1 month"
+  ExpiresByType text/css    "access plus 1 week"
+  ExpiresByType application/javascript "access plus 1 week"
+</IfModule>
+
+# ── Gzip Compression (backup for pages served by Apache) ─────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
+</IfModule>
+
+# ── Block dot-file access ─────────────────────────────────────────────────────
+<FilesMatch "^\.">
+  Order allow,deny
+  Deny from all
+</FilesMatch>
