@@ -16,6 +16,8 @@ import categoryRoutes from './routes/categoryRoutes';
 import orderRoutes from './routes/orderRoutes';
 import adminRoutes from './routes/adminRoutes';
 import userRoutes from './routes/userRoutes';
+import { createOrder, verifyPayment, createOrderValidation, verifyPaymentValidation } from './controllers/orderController';
+import { authenticate } from './middlewares/authMiddleware';
 
 const app = express();
 
@@ -55,6 +57,10 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/orders',     orderRoutes);
 app.use('/api/admin',      adminRoutes);
 app.use('/api/users',      userRoutes);
+
+// Razorpay specific aliases
+app.post('/api/create-order', authenticate, createOrderValidation, createOrder);
+app.post('/api/verify-payment', authenticate, verifyPaymentValidation, verifyPayment);
 
 // ── 404 & Centralised Error Handler ──────────────────────────────────────────
 app.use(notFound);

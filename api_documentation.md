@@ -36,8 +36,19 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 }
 ```
 
-### Resend OTP
+### Verify Email OTP (After Signup)
 - **Method:** `POST`
+- **Endpoint:** `/auth/verify-email-otp`
+- **Headers:** `Content-Type: application/json`
+- **Body Example:**
+```json
+{
+  "email": "jane@example.com",
+  "otp": "123456"
+}
+```
+
+### Resend OTP
 - **Endpoint:** `/auth/resend-otp`
 - **Headers:** `Content-Type: application/json`
 - **Body Example:**
@@ -71,6 +82,16 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
   "refreshToken": "<your-refresh-token>"
 }
 ```
+
+### Logout
+- **Method:** `POST`
+- **Endpoint:** `/auth/logout`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+
+### Logout All Devices
+- **Method:** `POST`
+- **Endpoint:** `/auth/logout-all`
+- **Headers:** `Authorization: Bearer <your_access_token>`
 
 ### Forgot Password
 - **Method:** `POST`
@@ -131,7 +152,55 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 
 ---
 
-## 2. Products (`/api/products`)
+## 2. User Profile & Preferences (`/api/users`)
+
+### List My Addresses
+- **Method:** `GET`
+- **Endpoint:** `/users/addresses`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+
+### Add New Address
+- **Method:** `POST`
+- **Endpoint:** `/users/addresses`
+- **Headers:** 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <your_access_token>`
+- **Body Example:**
+```json
+{
+  "street": "123 MG Road",
+  "city": "Pune",
+  "state": "Maharashtra",
+  "postalCode": "411001",
+  "country": "India",
+  "isDefault": true
+}
+```
+
+### Update Address
+- **Method:** `PUT`
+- **Endpoint:** `/users/addresses/:id`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+
+### Delete Address
+- **Method:** `DELETE`
+- **Endpoint:** `/users/addresses/:id`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+
+### Get My Wishlist
+- **Method:** `GET`
+- **Endpoint:** `/users/wishlist`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+
+### Toggle Wishlist Item
+- **Method:** `POST`
+- **Endpoint:** `/users/wishlist/:productId`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+- *Note: Adds to wishlist if not present, removes if already present.*
+
+---
+
+## 3. Products (`/api/products`)
 
 ### List Products
 - **Method:** `GET`
@@ -152,6 +221,22 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 - **Example URL:** `/products/macbook-pro-m3`
 - **Headers:** No auth needed.
 
+### Get Product Reviews
+- **Method:** `GET`
+- **Endpoint:** `/products/:productId/reviews`
+
+### Add Product Review (Auth Required)
+- **Method:** `POST`
+- **Endpoint:** `/products/:productId/reviews`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+- **Body Example:**
+```json
+{
+  "rating": 5,
+  "comment": "Amazing quality!"
+}
+```
+
 ---
 
 ## 3. Categories (`/api/categories`)
@@ -166,7 +251,38 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 
 ## 4. Orders (`/api/orders`)
 
-### Create Pending Order (Init Razorpay)
+### Create Order (Razorpay Alias)
+- **Method:** `POST`
+- **Endpoint:** `/create-order`
+- **Headers:** 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <your_access_token>`
+- **Body Example:**
+```json
+{
+  "items": [{ "productId": 5, "quantity": 2 }],
+  "addressId": 1,
+  "phoneNumber": "9876543210"
+}
+```
+
+### Verify Payment (Razorpay Alias)
+- **Method:** `POST`
+- **Endpoint:** `/verify-payment`
+- **Headers:** 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <your_access_token>`
+- **Body Example:**
+```json
+{
+  "razorpay_order_id": "order_H2g13x...",
+  "razorpay_payment_id": "pay_M1x...",
+  "razorpay_signature": "signature_hash...",
+  "orderId": 1
+}
+```
+
+### Create Pending Order (Full Details)
 - **Method:** `POST`
 - **Endpoint:** `/orders`
 - **Headers:** 
@@ -181,8 +297,9 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
       "quantity": 2
     }
   ],
-  "shippingAddress": "123 Awesome Street, City, Country",
-  "phoneNumber": "9876543210"
+  "addressId": 1,
+  "phoneNumber": "9876543210",
+  "couponCode": "DISCOUNT10"
 }
 ```
 
@@ -206,9 +323,34 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 - **Endpoint:** `/orders`
 - **Headers:** `Authorization: Bearer <your_access_token>`
 
+### Get Order Details
+- **Method:** `GET`
+- **Endpoint:** `/orders/:id`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+
+### Apply Coupon to Order
+- **Method:** `POST`
+- **Endpoint:** `/orders/apply-coupon`
+- **Headers:** `Authorization: Bearer <your_access_token>`
+- **Body Example:**
+```json
+{
+  "couponCode": "WELCOME2026"
+}
+```
+
 ---
 
-## 5. Admin (`/api/admin`) - (Requires Admin Auth)
+## 5. System (`/api/health`)
+
+### Health Check
+- **Method:** `GET`
+- **Endpoint:** `/health`
+- **Headers:** No auth needed.
+
+---
+
+## 6. Admin (`/api/admin`) - (Requires Admin Auth)
 
 > All admin routes require a valid JWT with `role === 'ADMIN'`.
 
@@ -289,6 +431,12 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
   - `tags`: `#newtag #discount`
   - `images`: `[Multiple Files Upload]` (Optional: adds to existing gallery)
 
+### Delete Product
+- **Method:** `DELETE`
+- **Endpoint:** `/admin/products/:id`
+- **Headers:** `Authorization: Bearer <admin_access_token>`
+- *Note: Deletes DB record and all Cloudinary images.*
+
 ### Create Category
 - **Method:** `POST`
 - **Endpoint:** `/admin/categories`
@@ -309,6 +457,16 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
   - `name`: `Updated Name`
   - `image`: `[File Upload]` (Replaces old image on Cloudinary)
 
+### Delete Category
+- **Method:** `DELETE`
+- **Endpoint:** `/admin/categories/:id`
+- **Headers:** `Authorization: Bearer <admin_access_token>`
+
+### List All Orders (Admin)
+- **Method:** `GET`
+- **Endpoint:** `/admin/orders`
+- **Headers:** `Authorization: Bearer <admin_access_token>`
+
 ### Update Order Status
 - **Method:** `PATCH`
 - **Endpoint:** `/admin/orders/:id/status`
@@ -322,6 +480,11 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 }
 ```
 
+### List All Users (Admin)
+- **Method:** `GET`
+- **Endpoint:** `/admin/users`
+- **Headers:** `Authorization: Bearer <admin_access_token>`
+
 ### Update User Role
 - **Method:** `PATCH`
 - **Endpoint:** `/admin/users/:id/role`
@@ -334,3 +497,34 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
   "role": "ADMIN"
 }
 ```
+
+### Toggle User Ban Status
+- **Method:** `PATCH`
+- **Endpoint:** `/admin/users/:id/ban`
+- **Headers:** `Authorization: Bearer <admin_access_token>`
+
+### Delete User
+- **Method:** `DELETE`
+- **Endpoint:** `/admin/users/:id`
+- **Headers:** `Authorization: Bearer <admin_access_token>`
+
+### Create Coupon
+- **Method:** `POST`
+- **Endpoint:** `/admin/coupons`
+- **Headers:** `Authorization: Bearer <admin_access_token>`
+- **Body Example:**
+```json
+{
+  "code": "FREESHIP",
+  "discountType": "FIXED",
+  "discountValue": 100,
+  "usageLimit": 50,
+  "expiresAt": "2026-12-31"
+}
+```
+
+### List All Coupons
+- **Method:** `GET`
+- **Endpoint:** `/admin/coupons`
+- **Headers:** `Authorization: Bearer <admin_access_token>`
+

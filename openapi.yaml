@@ -65,6 +65,198 @@ paths:
       responses:
         200: { description: Verified }
 
+  /auth/verify-email-otp:
+    post:
+      tags: [Authentication]
+      summary: Verify email OTP after signup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, example: "jane@example.com" }
+                otp: { type: string, example: "123456" }
+      responses:
+        200: { description: Verified }
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      security: [{ bearerAuth: [] }]
+      summary: Logout current session
+      responses:
+        200: { description: Success }
+
+  /auth/logout-all:
+    post:
+      tags: [Authentication]
+      security: [{ bearerAuth: [] }]
+      summary: Logout all sessions
+      responses:
+        200: { description: Success }
+
+
+  # --- ORDERS ---
+  /create-order:
+    post:
+      tags: [Orders]
+      security: [{ bearerAuth: [] }]
+      summary: Create a Razorpay order
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId: { type: integer }
+                      quantity: { type: integer }
+                addressId: { type: integer }
+                phoneNumber: { type: string }
+      responses:
+        201: { description: Success }
+
+  /verify-payment:
+    post:
+      tags: [Orders]
+      security: [{ bearerAuth: [] }]
+      summary: Verify Razorpay payment signature
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                razorpay_order_id: { type: string }
+                razorpay_payment_id: { type: string }
+                razorpay_signature: { type: string }
+                orderId: { type: integer }
+      responses:
+        200: { description: Payment Verified }
+
+  /orders:
+    get:
+      tags: [Orders]
+      security: [{ bearerAuth: [] }]
+      summary: Get user order history
+      responses:
+        200: { description: Success }
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      security: [{ bearerAuth: [] }]
+      summary: Get order details by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Success }
+
+  /orders/apply-coupon:
+    post:
+      tags: [Orders]
+      security: [{ bearerAuth: [] }]
+      summary: Apply coupon to a pending order
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                couponCode: { type: string }
+      responses:
+        200: { description: Coupon Applied }
+
+  /health:
+    get:
+      tags: [System]
+      summary: API health check
+      responses:
+        200: { description: Success }
+
+
+
+  # --- USERS ---
+  /users/addresses:
+    get:
+      tags: [User Profile]
+      security: [{ bearerAuth: [] }]
+      summary: Get user addresses
+      responses:
+        200: { description: Success }
+    post:
+      tags: [User Profile]
+      security: [{ bearerAuth: [] }]
+      summary: Add a new address
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                street: { type: string }
+                city: { type: string }
+                state: { type: string }
+                postalCode: { type: string }
+                country: { type: string }
+                isDefault: { type: boolean }
+      responses:
+        201: { description: Success }
+
+  /users/wishlist:
+    get:
+      tags: [User Profile]
+      security: [{ bearerAuth: [] }]
+      summary: Get user wishlist
+      responses:
+        200: { description: Success }
+
+  /users/wishlist/{productId}:
+    post:
+      tags: [User Profile]
+      security: [{ bearerAuth: [] }]
+      summary: Toggle product in wishlist
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Toggled }
+
+  /users/addresses/{id}:
+    put:
+      tags: [User Profile]
+      security: [{ bearerAuth: [] }]
+      summary: Update an address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Success }
+    delete:
+      tags: [User Profile]
+      security: [{ bearerAuth: [] }]
+      summary: Delete an address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Success }
+
+
   # --- PRODUCTS ---
   /products:
     get:
@@ -99,6 +291,38 @@ paths:
           schema: { type: string }
       responses:
         200: { description: Success }
+
+  /products/{productId}/reviews:
+    get:
+      tags: [Public Products]
+      summary: Get reviews for a product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Success }
+    post:
+      tags: [Public Products]
+      security: [{ bearerAuth: [] }]
+      summary: Add a review for a product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating: { type: integer }
+                comment: { type: string }
+      responses:
+        201: { description: Success }
+
 
   # --- ADMIN ---
   /admin/products:
@@ -185,3 +409,156 @@ paths:
                   success: { type: boolean }
                   imageUrl: { type: string }
                   publicId: { type: string }
+
+  /admin/products/{id}:
+    delete:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Delete a product and its images
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Success }
+
+  /admin/categories/{id}:
+    put:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Update a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                image: { type: string, format: binary }
+      responses:
+        200: { description: Success }
+    delete:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Delete a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Success }
+
+  /admin/orders:
+    get:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: List all orders
+      responses:
+        200: { description: Success }
+
+  /admin/orders/{id}/status:
+    patch:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Update order status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [PENDING, PAID, SHIPPED, DELIVERED, CANCELLED] }
+      responses:
+        200: { description: Success }
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: List all users
+      responses:
+        200: { description: Success }
+
+  /admin/users/{id}/role:
+    patch:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Update user role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { type: string, enum: [USER, ADMIN] }
+      responses:
+        200: { description: Success }
+
+  /admin/users/{id}/ban:
+    patch:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Toggle user ban status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Success }
+
+  /admin/users/{id}:
+    delete:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Delete a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        200: { description: Success }
+
+  /admin/coupons:
+    get:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: List all coupons
+      responses:
+        200: { description: Success }
+    post:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Create a new coupon
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                discountType: { type: string, enum: [PERCENTAGE, FIXED] }
+                discountValue: { type: number }
+                usageLimit: { type: integer }
+                expiresAt: { type: string, format: date-time }
+      responses:
+        201: { description: Created }
+

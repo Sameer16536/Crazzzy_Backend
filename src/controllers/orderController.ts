@@ -77,9 +77,14 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
     }
 
     const totalAmount = subtotal - discountApplied;
+    const amountInPaise = Math.round(totalAmount * 100);
+
+    if (amountInPaise < 100) {
+      throw createError(400, 'Minimum order amount is ₹1.00');
+    }
 
     const rpOrder = await razorpay.orders.create({
-      amount: Math.round(totalAmount * 100),
+      amount: amountInPaise,
       currency: 'INR',
       receipt: `rcpt_${userId}_${Date.now()}`,
     });
