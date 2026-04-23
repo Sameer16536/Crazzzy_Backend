@@ -8,3 +8,6 @@ npm-debug.log*
 Thumbs.db
 
 /generated/prisma
+
+dist/
+Images/

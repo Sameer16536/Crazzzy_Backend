@@ -18,7 +18,7 @@ cloudinary.config({
 });
 
 async function runMigration() {
-    const rootDir = './wall-posters'; // Your local folder path
+    const rootDir = './Images/wall-posters'; // Your local folder path
     const parentCategorySlug = 'wall-posters';
 
     // 1. Get or Create Parent Category
@@ -35,7 +35,8 @@ async function runMigration() {
 
         // 2. Create Sub-category
         const subCategoryName = folder.replace(/([A-Z])/g, ' $1').trim(); // "AnimeFeb" -> "Anime Feb"
-        const subCategorySlug = folder.toLowerCase();
+        // Sanitize slug: lowercase and replace non-alphanumeric chars with dashes
+        const subCategorySlug = folder.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
         const subCat = await prisma.category.upsert({
             where: { slug: subCategorySlug },
@@ -65,12 +66,18 @@ async function runMigration() {
                     data: {
                         title,
                         slug,
-                        price: 180, // Default price for posters
-                        stock: 100,
+                        price: 120, // Starting price (A4)
+                        stock: 200, // Total stock across variants
                         categoryId: subCat.id,
                         imageUrl: upload.secure_url,
                         images: {
-                            create: { imageUrl: upload.secure_url, publicId: upload.public_id, }
+                            create: { imageUrl: upload.secure_url, publicId: upload.public_id }
+                        },
+                        variants: {
+                            create: [
+                                { variantName: '13x19', additionalPrice: 60, stock: 100 },
+                                { variantName: 'A4', additionalPrice: 0, stock: 100 }
+                            ]
                         }
                     }
                 });

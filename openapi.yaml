@@ -162,3 +162,26 @@ paths:
                 image: { type: string, format: binary }
       responses:
         201: { description: Created }
+  /admin/upload:
+    post:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Upload an image and get Cloudinary details immediately
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image: { type: string, format: binary }
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  imageUrl: { type: string }
+                  publicId: { type: string }

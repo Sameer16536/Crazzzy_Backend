@@ -23,6 +23,17 @@ const router = express.Router();
 
 router.use(authenticate, requireAdmin);
 
+// Standalone Image Upload (Returns Cloudinary details immediately)
+router.post('/upload', upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+  
+  res.json({
+    success: true,
+    imageUrl: (req.file as any).path,
+    publicId: (req.file as any).filename
+  });
+});
+
 router.get('/stats', getDashboardStats);
 
 // Products (now supports multiple images array)

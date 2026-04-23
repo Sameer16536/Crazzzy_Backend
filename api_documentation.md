@@ -162,6 +162,7 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 - **Headers:** No auth needed.
 
 ---
+---
 
 ## 4. Orders (`/api/orders`)
 
@@ -215,6 +216,23 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 - **Method:** `GET`
 - **Endpoint:** `/admin/stats`
 - **Headers:** `Authorization: Bearer <admin_access_token>`
+
+### Standalone Image Upload
+- **Method:** `POST`
+- **Endpoint:** `/admin/upload`
+- **Headers:** 
+  - `Content-Type: multipart/form-data`
+  - `Authorization: Bearer <admin_access_token>`
+- **Body Example (Form Data):**
+  - `image`: `[File Upload]`
+- **Response Example:**
+```json
+{
+  "success": true,
+  "imageUrl": "https://res.cloudinary.com/...",
+  "publicId": "crazzzy/abcde"
+}
+```
 
 ### Create Product
 - **Method:** `POST`
