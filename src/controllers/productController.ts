@@ -194,6 +194,9 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
       mainPublicId = productImagesData[0].publicId;
     }
 
+    // Tags logic
+    const tagNames = req.body.tags !== undefined ? parseTags(req.body.tags) : undefined;
+
     const product = await prisma.product.update({
       where: { id: productId },
       data: {
@@ -209,11 +212,46 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
         publicId: mainPublicId,
         images: productImagesData.length > 0 ? {
           create: productImagesData
+        } : undefined,
+        tags: tagNames !== undefined ? {
+          set: [], // Clear existing tags
+          connectOrCreate: tagNames.map(name => ({
+            where: { name },
+            create: { name }
+          }))
         } : undefined
       }
     });
 
     res.json({ success: true, message: 'Product updated', product });
+  } catch (err) { next(err); }
+}
+
+export async function bulkProductUpdate(req: Request, res: Response, next: NextFunction) {
+  try {
+    const updates = req.body.updates; // Expecting array of { id, title, price, tags, stock }
+    if (!Array.isArray(updates)) throw createError(400, 'Updates must be an array');
+
+    const results = await Promise.all(updates.map(async (u: any) => {
+      const tagNames = u.tags !== undefined ? parseTags(u.tags) : undefined;
+      return prisma.product.update({
+        where: { id: parseInt(u.id) },
+        data: {
+          title: u.title,
+          price: u.price ? parseFloat(u.price) : undefined,
+          stock: u.stock !== undefined ? parseInt(u.stock) : undefined,
+          tags: tagNames !== undefined ? {
+            set: [],
+            connectOrCreate: tagNames.map(name => ({
+              where: { name },
+              create: { name }
+            }))
+          } : undefined
+        }
+      });
+    }));
+
+    res.json({ success: true, message: `${results.length} products updated`, results });
   } catch (err) { next(err); }
 }
 

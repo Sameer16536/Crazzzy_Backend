@@ -3,7 +3,7 @@ import { authenticate, requireAdmin } from '../middlewares/authMiddleware';
 import upload from '../middlewares/uploadMiddleware';
 
 import {
-  createProduct, updateProduct, deleteProduct,
+  createProduct, updateProduct, deleteProduct, bulkProductUpdate,
   productCreateValidation, productUpdateValidation,
 } from '../controllers/productController';
 
@@ -27,6 +27,7 @@ router.get('/stats', getDashboardStats);
 
 // Products (now supports multiple images array)
 router.post('/products', upload.array('images', 5), productCreateValidation, createProduct);
+router.patch('/products/bulk-update', bulkProductUpdate);
 router.put('/products/:id', upload.array('images', 5), productUpdateValidation, updateProduct);
 router.delete('/products/:id', deleteProduct);
 
