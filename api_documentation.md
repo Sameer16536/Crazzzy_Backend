@@ -233,6 +233,32 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
   - `isDealOfTheDay`: `false`
   - `images`: `[Multiple Files Upload]` (Max 5)
 
+### Bulk Update Products
+- **Method:** `PATCH`
+- **Endpoint:** `/admin/products/bulk-update`
+- **Headers:** 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <admin_access_token>`
+- **Body Example:**
+```json
+{
+  "updates": [
+    {
+      "id": 1,
+      "title": "Anime Poster v2",
+      "price": 199.99,
+      "tags": "#anime #newedition",
+      "stock": 50
+    },
+    {
+      "id": 2,
+      "title": "One Piece Poster",
+      "tags": "#luffy #pirate"
+    }
+  ]
+}
+```
+
 ### Update Product Status
 - **Method:** `PUT`
 - **Endpoint:** `/admin/products/:id`

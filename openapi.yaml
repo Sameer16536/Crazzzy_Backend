@@ -1,0 +1,164 @@
+openapi: 3.0.3
+info:
+  title: Crazzzy.in Backend API
+  description: Professional e-commerce API for Crazzzy.in featuring product management, Cloudinary integration, and Razorpay payments.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000/api
+    description: Local Development Server
+  - url: https://crazzzy.in/api
+    description: Production Server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  # --- AUTH ---
+  /auth/signup:
+    post:
+      tags: [Authentication]
+      summary: Register a new user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, example: "Jane Doe" }
+                email: { type: string, example: "jane@example.com" }
+                password: { type: string, example: "SecurePassword123!" }
+      responses:
+        200: { description: Success }
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login and get tokens
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, example: "jane@example.com" }
+                password: { type: string, example: "SecurePassword123!" }
+      responses:
+        200: { description: Success }
+
+  /auth/verify-otp:
+    post:
+      tags: [Authentication]
+      summary: Verify OTP
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, example: "jane@example.com" }
+                otp: { type: string, example: "123456" }
+                type: { type: string, enum: [VERIFICATION, PASSWORD_RESET] }
+      responses:
+        200: { description: Verified }
+
+  # --- PRODUCTS ---
+  /products:
+    get:
+      tags: [Public Products]
+      summary: List and search products
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: category
+          in: query
+          description: Category or Parent Category slug
+          schema: { type: string, example: "wall-posters" }
+        - name: search
+          in: query
+          description: Search in title, description, category, or tags
+          schema: { type: string, example: "anime" }
+      responses:
+        200: { description: Success }
+
+  /products/{slug}:
+    get:
+      tags: [Public Products]
+      summary: Get product details by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200: { description: Success }
+
+  # --- ADMIN ---
+  /admin/products:
+    post:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Create a new product (with images and tags)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                price: { type: number }
+                stock: { type: integer }
+                categoryId: { type: integer }
+                tags: { type: string, description: "e.g. #anime #poster" }
+                images:
+                  type: array
+                  items: { type: string, format: binary }
+      responses:
+        201: { description: Created }
+
+  /admin/products/bulk-update:
+    patch:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Update multiple products at once
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      title: { type: string }
+                      price: { type: number }
+                      tags: { type: string }
+                      stock: { type: integer }
+      responses:
+        200: { description: Updated }
+
+  /admin/categories:
+    post:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Create a category with branding image
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                image: { type: string, format: binary }
+      responses:
+        201: { description: Created }
