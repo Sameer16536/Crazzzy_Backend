@@ -101,6 +101,10 @@ export async function deleteCategory(req: Request, res: Response, next: NextFunc
       throw createError(400, `Cannot delete: ${existing._count.products} product(s) are assigned to this category`);
     }
 
+    if (existing.publicId) {
+      await removeFile(existing.publicId).catch(() => {});
+    }
+
     await prisma.category.delete({ where: { id: categoryId } });
     res.json({ success: true, message: 'Category deleted' });
   } catch (err) { next(err); }

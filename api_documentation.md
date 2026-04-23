@@ -139,9 +139,11 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 - **Query Params:**
   - `page=1`
   - `limit=20`
-  - `category=electronics`
-  - `search=laptop`
+  - `category=wall-posters` (Matches exact slug OR products in this sub-category)
+  - `search=anime` (Searches in Title, Description, and Category Name)
   - `sortBy=price_asc` (or `price_desc`, `popularity`)
+  - `isFeatured=true` (Filter for featured items)
+  - `isDealOfTheDay=true` (Filter for daily deals)
 - **Headers:** No auth needed.
 
 ### Get Product By Slug
@@ -221,38 +223,47 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
   - `Content-Type: multipart/form-data`
   - `Authorization: Bearer <admin_access_token>`
 - **Body Example (Form Data):**
-  - `title`: `New Smartphone`
-  - `price`: `999.99`
-  - `stock`: `50`
+  - `title`: `Wall Poster #1`
+  - `description`: `Aesthetic poster for your room`
+  - `price`: `180.00`
+  - `stock`: `100`
   - `categoryId`: `2`
-  - `images`: `[File Upload(s)]`
+  - `tags`: `#anime #onepiece #wallart` (Supports hashtags, spaces, or commas)
+  - `isFeatured`: `true`
+  - `isDealOfTheDay`: `false`
+  - `images`: `[Multiple Files Upload]` (Max 5)
 
 ### Update Product Status
 - **Method:** `PUT`
 - **Endpoint:** `/admin/products/:id`
 - **Headers:** 
-  - `Content-Type: application/json`
+  - `Content-Type: multipart/form-data`
   - `Authorization: Bearer <admin_access_token>`
-- **Body Example:**
-```json
-{
-  "price": 899.99,
-  "isActive": false
-}
-```
+- **Body Example (Form Data):**
+  - `price`: `899.99`
+  - `isActive`: `false`
+  - `tags`: `#newtag #discount`
+  - `images`: `[Multiple Files Upload]` (Optional: adds to existing gallery)
 
 ### Create Category
 - **Method:** `POST`
 - **Endpoint:** `/admin/categories`
 - **Headers:** 
-  - `Content-Type: application/json`
+  - `Content-Type: multipart/form-data`
   - `Authorization: Bearer <admin_access_token>`
-- **Body Example:**
-```json
-{
-  "name": "Electronics"
-}
-```
+- **Body Example (Form Data):**
+  - `name`: `Anime Posters`
+  - `image`: `[File Upload]` (Category branding image)
+
+### Update Category
+- **Method:** `PUT`
+- **Endpoint:** `/admin/categories/:id`
+- **Headers:** 
+  - `Content-Type: multipart/form-data`
+  - `Authorization: Bearer <admin_access_token>`
+- **Body Example (Form Data):**
+  - `name`: `Updated Name`
+  - `image`: `[File Upload]` (Replaces old image on Cloudinary)
 
 ### Update Order Status
 - **Method:** `PATCH`

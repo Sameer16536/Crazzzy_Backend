@@ -41,6 +41,11 @@ function makeSlug(title: string) {
   return slugify(title, { lower: true, strict: true });
 }
 
+const parseTags = (tagString: string) => {
+  if (!tagString) return [];
+  return tagString.split(/[#\s,]+/).filter(t => t.length > 0).map(t => t.toLowerCase());
+};
+
 // Public API
 export async function listProducts(req: Request, res: Response, next: NextFunction) {
   try {
@@ -48,19 +53,36 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '20', 10)));
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ProductWhereInput = { isActive: true };
+    const { search, category, isFeatured, isDealOfTheDay } = req.query;
 
-    if (req.query.category) {
-      where.category = { slug: req.query.category as string };
-    }
-    if (req.query.search) {
-      where.OR = [
-        { title: { contains: req.query.search as string, mode: 'insensitive' } },
-        { description: { contains: req.query.search as string, mode: 'insensitive' } }
-      ];
-    }
-    if (req.query.isFeatured) where.isFeatured = true;
-    if (req.query.isDealOfTheDay) where.isDealOfTheDay = true;
+    const where: Prisma.ProductWhereInput = {
+      isActive: true,
+      AND: [
+        // Logic: Search in Title OR Description OR Category Name
+        search ? {
+          OR: [
+            { title: { contains: search as string, mode: 'insensitive' } },
+            { description: { contains: search as string, mode: 'insensitive' } },
+            { category: { name: { contains: search as string, mode: 'insensitive' } } },
+            { tags: { some: { name: { contains: (search as string).replace('#', ''), mode: 'insensitive' } } } }
+          ]
+        } : {},
+
+        // Logic: Filter by Category or Sub-category
+        category ? {
+          category: {
+            OR: [
+              { slug: category as string },
+              { parent: { slug: category as string } }
+            ]
+          }
+        } : {},
+
+        // Keep additional flags
+        isFeatured ? { isFeatured: true } : {},
+        isDealOfTheDay ? { isDealOfTheDay: true } : {},
+      ]
+    };
 
     let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
     if (req.query.sortBy === 'price_asc') orderBy = { price: 'asc' };
@@ -106,13 +128,17 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
     if (dup) throw createError(409, `A product with a similar title already exists (slug: ${slug})`);
 
     const imageUrl = req.file ? (req.file as any).path : null;
-    
+    const mainPublicId = req.file ? (req.file as any).filename : null;
+
     // Multiple images
     const files = req.files as any[];
     const productImagesData = files?.map((f: any) => ({
       imageUrl: f.path,
       publicId: f.filename
     })) || [];
+
+    // Tags logic
+    const tagNames = parseTags(req.body.tags);
 
     const product = await prisma.product.create({
       data: {
@@ -123,12 +149,19 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
         isDealOfTheDay: isDealOfTheDay === 'true' || isDealOfTheDay === true,
         isActive: isActive !== 'false',
         imageUrl: imageUrl || (productImagesData.length > 0 ? productImagesData[0].imageUrl : null),
-        images: { create: productImagesData }
+        publicId: mainPublicId || (productImagesData.length > 0 ? productImagesData[0].publicId : null),
+        images: { create: productImagesData },
+        tags: {
+          connectOrCreate: tagNames.map(name => ({
+            where: { name },
+            create: { name }
+          }))
+        }
       }
     });
 
     res.status(201).json({ success: true, message: 'Product created', product });
-  } catch(err) { next(err); }
+  } catch (err) { next(err); }
 }
 
 export async function updateProduct(req: Request, res: Response, next: NextFunction) {
@@ -136,17 +169,19 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     validate(req);
     const productId = parseInt(req.params.id as string, 10);
     const existing = await prisma.product.findUnique({ where: { id: productId }, include: { images: true } });
-    
+
     if (!existing) throw createError(404, 'Product not found');
 
     const { title, description, price, originalPrice, stock, categoryId, isFeatured, isDealOfTheDay, isActive } = req.body;
     let slug = existing.slug;
-    
+
     if (title && title !== existing.title) {
       slug = makeSlug(title);
     }
 
     let imageUrl = existing.imageUrl;
+    let mainPublicId = existing.publicId;
+
     const files = req.files as any[];
     const productImagesData = files?.map((f: any) => ({
       imageUrl: f.path,
@@ -156,6 +191,7 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     // If new images are uploaded, update the main imageUrl to the first one of the new batch
     if (productImagesData.length > 0) {
       imageUrl = productImagesData[0].imageUrl;
+      mainPublicId = productImagesData[0].publicId;
     }
 
     const product = await prisma.product.update({
@@ -170,6 +206,7 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
         isDealOfTheDay: isDealOfTheDay !== undefined ? (isDealOfTheDay === 'true' || isDealOfTheDay === true) : undefined,
         isActive: isActive !== undefined ? (isActive !== 'false' && isActive !== false) : undefined,
         imageUrl,
+        publicId: mainPublicId,
         images: productImagesData.length > 0 ? {
           create: productImagesData
         } : undefined
@@ -177,7 +214,7 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     });
 
     res.json({ success: true, message: 'Product updated', product });
-  } catch(err) { next(err); }
+  } catch (err) { next(err); }
 }
 
 export async function deleteProduct(req: Request, res: Response, next: NextFunction) {
@@ -186,14 +223,17 @@ export async function deleteProduct(req: Request, res: Response, next: NextFunct
     const existing = await prisma.product.findUnique({ where: { id: productId }, include: { images: true } });
     if (!existing) throw createError(404, 'Product not found');
 
-    if (existing.imageUrl) {
-      await removeFile(existing.imageUrl).catch(() => {});
+    if (existing.publicId) {
+      await removeFile(existing.publicId).catch(() => { });
+    } else if (existing.imageUrl) {
+      // Fallback for legacy data without publicId
+      await removeFile(existing.imageUrl).catch(() => { });
     }
     for (const img of existing.images) {
-      await removeFile(img.publicId).catch(() => {});
+      await removeFile(img.publicId).catch(() => { });
     }
 
     await prisma.product.delete({ where: { id: productId } });
     res.json({ success: true, message: 'Product deleted' });
-  } catch(err) { next(err); }
+  } catch (err) { next(err); }
 }
