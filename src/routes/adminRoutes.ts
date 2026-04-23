@@ -27,12 +27,12 @@ router.get('/stats', getDashboardStats);
 
 // Products (now supports multiple images array)
 router.post('/products', upload.array('images', 5), productCreateValidation, createProduct);
-router.put('/products/:id', upload.single('images'), productUpdateValidation, updateProduct);
+router.put('/products/:id', upload.array('images', 5), productUpdateValidation, updateProduct);
 router.delete('/products/:id', deleteProduct);
 
 // Categories
-router.post('/categories', categoryValidation, createCategory);
-router.put('/categories/:id', categoryValidation, updateCategory);
+router.post('/categories', upload.single('image'), categoryValidation, createCategory);
+router.put('/categories/:id', upload.single('image'), categoryValidation, updateCategory);
 router.delete('/categories/:id', deleteCategory);
 
 // Orders

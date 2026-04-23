@@ -135,7 +135,7 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
   try {
     validate(req);
     const productId = parseInt(req.params.id as string, 10);
-    const existing = await prisma.product.findUnique({ where: { id: productId } });
+    const existing = await prisma.product.findUnique({ where: { id: productId }, include: { images: true } });
     
     if (!existing) throw createError(404, 'Product not found');
 
@@ -147,8 +147,15 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     }
 
     let imageUrl = existing.imageUrl;
-    if (req.file) {
-       imageUrl = (req.file as any).path;
+    const files = req.files as any[];
+    const productImagesData = files?.map((f: any) => ({
+      imageUrl: f.path,
+      publicId: f.filename
+    })) || [];
+
+    // If new images are uploaded, update the main imageUrl to the first one of the new batch
+    if (productImagesData.length > 0) {
+      imageUrl = productImagesData[0].imageUrl;
     }
 
     const product = await prisma.product.update({
@@ -162,7 +169,10 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
         isFeatured: isFeatured !== undefined ? (isFeatured === 'true' || isFeatured === true) : undefined,
         isDealOfTheDay: isDealOfTheDay !== undefined ? (isDealOfTheDay === 'true' || isDealOfTheDay === true) : undefined,
         isActive: isActive !== undefined ? (isActive !== 'false' && isActive !== false) : undefined,
-        imageUrl
+        imageUrl,
+        images: productImagesData.length > 0 ? {
+          create: productImagesData
+        } : undefined
       }
     });
 
