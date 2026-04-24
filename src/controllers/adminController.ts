@@ -60,18 +60,29 @@ export async function listAllOrders(req: Request, res: Response, next: NextFunct
 export async function updateOrderStatus(req: Request, res: Response, next: NextFunction) {
   try {
     const orderId = parseInt(req.params.id as string, 10);
-    const { status } = req.body;
+    const { status, trackingNumber, courierName, estimatedDelivery } = req.body;
     
-    if (!Object.values(OrderStatus).includes(status)) {
+    if (status && !Object.values(OrderStatus).includes(status)) {
       throw createError(400, `Invalid status`);
     }
 
     const order = await prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw createError(404, 'Order not found');
 
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
+    if (courierName !== undefined) updateData.courierName = courierName;
+    if (estimatedDelivery !== undefined) updateData.estimatedDelivery = estimatedDelivery ? new Date(estimatedDelivery) : null;
+    
+    // Auto-set deliveredAt if status is changed to DELIVERED
+    if (status === OrderStatus.DELIVERED) {
+      updateData.deliveredAt = new Date();
+    }
+
     await prisma.order.update({
       where: { id: orderId },
-      data: { status }
+      data: updateData
     });
 
     res.json({ success: true, message: `Order status updated to "${status}"` });

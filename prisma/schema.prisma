@@ -188,9 +188,15 @@ model Order {
   status          OrderStatus @default(PENDING)
   paymentId       String?     @map("payment_id") @db.VarChar(255)
   shippingAddress String?     @map("shipping_address") @db.Text
-  phoneNumber     String?     @map("phone_number") @db.VarChar(20)
+  phoneNumber     String      @map("phone_number") @db.VarChar(20)
   couponCode      String?     @map("coupon_code") @db.VarChar(50)
   discountApplied Decimal     @default(0) @map("discount_applied") @db.Decimal(10, 2)
+
+  // Logistics & Tracking (Amazon/Flipkart style)
+  trackingNumber    String?      @map("tracking_number") @db.VarChar(255)
+  courierName       String?      @map("courier_name") @db.VarChar(100)
+  estimatedDelivery DateTime?    @map("estimated_delivery")
+  deliveredAt       DateTime?    @map("delivered_at")
 
   createdAt DateTime @default(now()) @map("created_at")
 

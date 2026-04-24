@@ -1,0 +1,140 @@
+@baseUrl = http://localhost:{{$processEnv PORT || 3000}}/api
+@authToken = YOUR_ACCESS_TOKEN_HERE
+
+### 1. HEALTH CHECK
+GET {{baseUrl}}/health
+
+###########################################################
+### AUTHENTICATION
+###########################################################
+
+### SIGNUP
+# @name signup
+POST {{baseUrl}}/auth/signup
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "test@example.com",
+  "password": "Password123"
+}
+
+### VERIFY OTP (Check console for the code if using mock/logs)
+POST {{baseUrl}}/auth/verify-otp
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "otp": "123456"
+}
+
+### LOGIN
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "Password123"
+}
+
+### GET PROFILE (Requires Auth)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{authToken}}
+
+
+###########################################################
+### CATALOG (PRODUCTS & CATEGORIES)
+###########################################################
+
+### LIST CATEGORIES
+GET {{baseUrl}}/categories
+
+### LIST PRODUCTS (With Pagination & Filters)
+GET {{baseUrl}}/products?page=1&limit=10&sortBy=price_asc
+
+### GET PRODUCT BY SLUG
+GET {{baseUrl}}/products/example-product-slug
+
+
+###########################################################
+### USER FEATURES (WISHLIST & ADDRESSES)
+###########################################################
+
+### CREATE ADDRESS
+POST {{baseUrl}}/users/addresses
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "label": "Home",
+  "street": "123 Tech Avenue",
+  "city": "Bangalore",
+  "state": "Karnataka",
+  "postalCode": "560001",
+  "country": "India",
+  "isDefault": true
+}
+
+### GET ADDRESSES
+GET {{baseUrl}}/users/addresses
+Authorization: Bearer {{authToken}}
+
+### TOGGLE WISHLIST
+POST {{baseUrl}}/users/wishlist/1
+Authorization: Bearer {{authToken}}
+
+
+###########################################################
+### ORDERS & RAZORPAY
+###########################################################
+
+### APPLY COUPON (Test before ordering)
+POST {{baseUrl}}/orders/apply-coupon
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "code": "WELCOME10",
+  "cartTotal": 1000
+}
+
+### CREATE ORDER (Razorpay Initialization)
+# @name createOrder
+POST {{baseUrl}}/orders
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "productId": 1, "quantity": 2 }
+  ],
+  "addressId": 1,
+  "phoneNumber": "9876543210",
+  "couponCode": "WELCOME10"
+}
+
+### VERIFY PAYMENT (Requires frontend response)
+POST {{baseUrl}}/orders/verify-payment
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "razorpay_order_id": "order_K8O...",
+  "razorpay_payment_id": "pay_K8P...",
+  "razorpay_signature": "signature_hash..."
+}
+
+
+###########################################################
+### ADMIN ROUTES
+###########################################################
+
+### GET DASHBOARD STATS
+GET {{baseUrl}}/admin/stats
+Authorization: Bearer {{authToken}}
+
+### LIST ALL USERS
+GET {{baseUrl}}/admin/users
+Authorization: Bearer {{authToken}}

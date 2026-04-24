@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crazzzy.in - Razorpay Test Payment</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f7f6; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 90%; }
+        button { background: #3399cc; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: 600; width: 100%; transition: background 0.3s; }
+        button:hover { background: #287ba5; }
+        h2 { color: #333; margin-bottom: 8px; }
+        p { color: #666; margin-bottom: 24px; }
+        .details { text-align: left; background: #f9f9f9; padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 20px; color: #444; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Crazzzy.in Payment</h2>
+    <p>Complete your test purchase via Razorpay</p>
+    
+    <div class="details">
+        <strong>Order ID:</strong> order_ShO0DuDPwYESd0<br>
+        <strong>Amount:</strong> ₹3,600.00
+    </div>
+
+    <button id="pay-button">Pay Now (Card / UPI)</button>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+    const options = {
+        "key": "rzp_test_Sh1LHelSuKvRWb", 
+        "amount": "360000",
+        "currency": "INR",
+        "name": "Crazzzy.in",
+        "description": "Test Transaction",
+        "order_id": "order_ShO0DuDPwYESd0",
+        "handler": function (response){
+            console.log("Payment Successful!");
+            console.log("Payment ID:", response.razorpay_payment_id);
+            console.log("Order ID:", response.razorpay_order_id);
+            console.log("Signature:", response.razorpay_signature);
+            
+            alert("PAYMENT SUCCESSFUL!\n\nCopy these for your /verify-payment API:\n\nPayment ID: " + response.razorpay_payment_id + "\n\nSignature: " + response.razorpay_signature);
+        },
+        "prefill": {
+            "name": "Test User",
+            "email": "test@example.com",
+            "contact": "9876543210"
+        },
+        "theme": {
+            "color": "#3399cc"
+        }
+    };
+
+    const rzp = new Razorpay(options);
+
+    document.getElementById('pay-button').onclick = function(e){
+        rzp.open();
+        e.preventDefault();
+    }
+</script>
+
+</body>
+</html>
