@@ -260,11 +260,19 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 - **Body Example:**
 ```json
 {
-  "items": [{ "productId": 5, "quantity": 2 }],
+  "items": [
+    { 
+      "productId": 5, 
+      "quantity": 2, 
+      "variantId": 12 
+    }
+  ],
   "addressId": 1,
-  "phoneNumber": "9876543210"
+  "phoneNumber": "9876543210",
+  "couponCode": "WELCOME10"
 }
 ```
+*Note: `variantId` is optional. Use it for specific sizes/colors.*
 
 ### Verify Payment (Razorpay Alias)
 - **Method:** `POST`
@@ -392,6 +400,7 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
   - `isFeatured`: `true`
   - `isDealOfTheDay`: `false`
   - `images`: `[Multiple Files Upload]` (Max 5)
+  - `variants`: `[JSON String]` Example: `[{"name":"Size","value":"XL","price":50,"stock":10}]`
 
 ### Bulk Update Products
 - **Method:** `PATCH`
@@ -476,9 +485,13 @@ Base URL: `http://localhost:3000/api` (Local) or `https://crazzzy.in/api` (Produ
 - **Body Example:**
 ```json
 {
-  "status": "SHIPPED"
+  "status": "SHIPPED",
+  "trackingNumber": "TRK88776655",
+  "courierName": "Delhivery",
+  "estimatedDelivery": "2026-12-25"
 }
 ```
+*Note: Changing status to SHIPPED or DELIVERED triggers an automated email to the customer.*
 
 ### List All Users (Admin)
 - **Method:** `GET`

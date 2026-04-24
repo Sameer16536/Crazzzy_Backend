@@ -52,13 +52,40 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
     const validatedItems: any[] = [];
 
     for (const item of items) {
-      const product = await prisma.product.findUnique({ where: { id: item.productId } });
+      const product = await prisma.product.findUnique({ 
+        where: { id: item.productId },
+        include: { variants: true }
+      });
+
       if (!product) throw createError(404, `Product ID ${item.productId} not found`);
       if (!product.isActive) throw createError(400, `Product "${product.title}" is unavailable`);
-      if (product.stock < item.quantity) throw createError(400, `Insufficient stock for "${product.title}"`);
       
-      subtotal += Number(product.price) * item.quantity;
-      validatedItems.push({ productId: product.id, quantity: item.quantity, price: product.price });
+      let price = Number(product.price);
+      let stockToCheck = product.stock;
+
+      // If a specific variant is selected
+      if (item.variantId) {
+        const variant = product.variants.find(v => v.id === item.variantId);
+        if (!variant) throw createError(400, `Invalid variant for product "${product.title}"`);
+        
+        // Use variant-specific price if it exists, otherwise use base price
+        if (variant.additionalPrice && Number(variant.additionalPrice) > 0) {
+          price += Number(variant.additionalPrice);
+        }
+        stockToCheck = variant.stock;
+      }
+
+      if (stockToCheck < item.quantity) {
+        throw createError(400, `Insufficient stock for "${product.title}" ${item.variantId ? '(selected variant)' : ''}`);
+      }
+      
+      subtotal += price * item.quantity;
+      validatedItems.push({ 
+        productId: product.id, 
+        variantId: item.variantId || null,
+        quantity: item.quantity, 
+        price: price 
+      });
     }
 
     let discountApplied = 0;
@@ -103,6 +130,7 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
           items: {
             create: validatedItems.map(item => ({
               productId: item.productId,
+              productVariantId: item.variantId,
               quantity: item.quantity,
               price: item.price
             }))
@@ -173,10 +201,19 @@ export async function verifyPayment(req: Request, res: Response, next: NextFunct
       });
 
       for (const item of order.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } }
-        });
+        if (item.productVariantId) {
+          // Decrement Variant Stock
+          await tx.productVariant.update({
+            where: { id: item.productVariantId },
+            data: { stock: { decrement: item.quantity } }
+          });
+        } else {
+          // Decrement Base Product Stock
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } }
+          });
+        }
       }
     });
 
