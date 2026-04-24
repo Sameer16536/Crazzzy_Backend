@@ -137,8 +137,9 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
       publicId: f.filename
     })) || [];
 
-    // Tags logic
+    // Tags & Variants logic
     const tagNames = parseTags(req.body.tags);
+    const variantsData = req.body.variants ? (typeof req.body.variants === 'string' ? JSON.parse(req.body.variants) : req.body.variants) : [];
 
     const product = await prisma.product.create({
       data: {
@@ -151,6 +152,14 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
         imageUrl: imageUrl || (productImagesData.length > 0 ? productImagesData[0].imageUrl : null),
         publicId: mainPublicId || (productImagesData.length > 0 ? productImagesData[0].publicId : null),
         images: { create: productImagesData },
+        variants: {
+          create: variantsData.map((v: any) => ({
+            name: v.name,
+            value: v.value,
+            price: v.price ? parseFloat(v.price) : null,
+            stock: v.stock ? parseInt(v.stock) : 0
+          }))
+        },
         tags: {
           connectOrCreate: tagNames.map(name => ({
             where: { name },
@@ -194,8 +203,9 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
       mainPublicId = productImagesData[0].publicId;
     }
 
-    // Tags logic
+    // Tags & Variants logic
     const tagNames = req.body.tags !== undefined ? parseTags(req.body.tags) : undefined;
+    const variantsData = req.body.variants !== undefined ? (typeof req.body.variants === 'string' ? JSON.parse(req.body.variants) : req.body.variants) : undefined;
 
     const product = await prisma.product.update({
       where: { id: productId },
@@ -213,8 +223,17 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
         images: productImagesData.length > 0 ? {
           create: productImagesData
         } : undefined,
+        variants: variantsData !== undefined ? {
+          deleteMany: {}, // Clear and recreate variants
+          create: variantsData.map((v: any) => ({
+            name: v.name,
+            value: v.value,
+            price: v.price ? parseFloat(v.price) : null,
+            stock: v.stock ? parseInt(v.stock) : 0
+          }))
+        } : undefined,
         tags: tagNames !== undefined ? {
-          set: [], // Clear existing tags
+          set: [], 
           connectOrCreate: tagNames.map(name => ({
             where: { name },
             create: { name }

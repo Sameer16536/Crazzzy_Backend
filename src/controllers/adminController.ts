@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/db';
 import { createError } from '../middlewares/errorMiddleware';
 import { OrderStatus, Role } from '@prisma/client';
+import { sendOrderShippedEmail, sendOrderDeliveredEmail } from '../config/mail';
 
 export async function getDashboardStats(req: Request, res: Response, next: NextFunction) {
   try {
@@ -80,12 +81,20 @@ export async function updateOrderStatus(req: Request, res: Response, next: NextF
       updateData.deliveredAt = new Date();
     }
 
-    await prisma.order.update({
+    const updatedOrder = await prisma.order.update({
       where: { id: orderId },
-      data: updateData
+      data: updateData,
+      include: { user: true }
     });
 
-    res.json({ success: true, message: `Order status updated to "${status}"` });
+    // --- Amazon-like Automation Triggers ---
+    if (status === OrderStatus.SHIPPED) {
+      sendOrderShippedEmail(updatedOrder.user.email, updatedOrder.user.name, updatedOrder).catch(console.error);
+    } else if (status === OrderStatus.DELIVERED) {
+      sendOrderDeliveredEmail(updatedOrder.user.email, updatedOrder.user.name, updatedOrder).catch(console.error);
+    }
+
+    res.json({ success: true, message: `Order status updated to "${status}"`, order: updatedOrder });
   } catch (err) { next(err); }
 }
 

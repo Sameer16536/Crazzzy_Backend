@@ -221,3 +221,67 @@ export async function sendOrderReceiptEmail(email: string, name: string, order: 
     text   : `Hi ${name}, your order #${order.id} for ₹${order.totalAmount.toString()} is confirmed.`,
   });
 }
+
+export async function sendOrderShippedEmail(email: string, name: string, order: Order) {
+  const html = baseTemplate(`
+    <h2 style="margin:0 0 8px;color:#1a1a1a;font-size:22px;font-weight:700;">
+      Your Order is Shipped! 🚚
+    </h2>
+    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">
+      Hi <strong>${name}</strong>, great news! Your order <strong>#${order.id}</strong> has been shipped and is on its way to you.
+    </p>
+    <div style="background:#f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+      <p style="margin:0 0 8px; font-size: 14px; color: #666;">Tracking Details:</p>
+      <div style="font-size: 18px; font-weight: 700; color: #1a1a1a;">
+        ${order.trackingNumber}
+      </div>
+      <p style="margin:4px 0 0; font-size: 13px; color: #888;">Courier: ${order.courierName}</p>
+      ${order.estimatedDelivery ? `<p style="margin:12px 0 0; font-size: 14px;">📅 Estimated Delivery: <strong>${new Date(order.estimatedDelivery).toDateString()}</strong></p>` : ''}
+    </div>
+    <div style="text-align:center;">
+      <a href="https://${BRAND_DOMAIN}/track/${order.trackingNumber}"
+         style="background:${BRAND_COLOR};color:#ffffff;text-decoration:none;
+                padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;
+                display:inline-block;">
+        Track Package →
+      </a>
+    </div>
+  `);
+
+  await sendMail({
+    to: email,
+    subject: `Order Shipped #${order.id} — Track your package 🚚`,
+    html,
+    text: `Your order #${order.id} has been shipped! Tracking ID: ${order.trackingNumber}`
+  });
+}
+
+export async function sendOrderDeliveredEmail(email: string, name: string, order: Order) {
+  const html = baseTemplate(`
+    <h2 style="margin:0 0 8px;color:#1a1a1a;font-size:22px;font-weight:700;">
+      Package Delivered! 🏠
+    </h2>
+    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">
+      Hi <strong>${name}</strong>, your order <strong>#${order.id}</strong> was delivered successfully. We hope you love your purchase!
+    </p>
+    <p style="margin:0 0 24px;color:#555555;font-size:15px;line-height:1.6;">
+      How was your experience? Your feedback helps us improve and helps other shoppers too.
+    </p>
+    <div style="text-align:center;">
+      <a href="https://${BRAND_DOMAIN}/products/review/${order.id}"
+         style="background:${BRAND_COLOR};color:#ffffff;text-decoration:none;
+                padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;
+                display:inline-block;">
+        Write a Review ⭐
+      </a>
+    </div>
+  `);
+
+  await sendMail({
+    to: email,
+    subject: `Delivered: Your order #${order.id} 🏠`,
+    html,
+    text: `Your order #${order.id} has been delivered. We hope you enjoy it!`
+  });
+}
+
