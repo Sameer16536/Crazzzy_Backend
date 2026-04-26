@@ -19,7 +19,7 @@ export const createOrderValidation = [
   body('items').isArray({ min: 1 }).withMessage('items must be a non-empty array'),
   body('items.*.productId').isInt({ min: 1 }).withMessage('Each item must have a valid productId'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Each item must have a valid quantity (min 1)'),
-  body('addressId').isInt({ min: 1 }).withMessage('Address ID is required'),
+  body('addressId').notEmpty().withMessage('Address ID is required'),
   body('phoneNumber').trim().notEmpty(),
   body('couponCode').optional().trim(),
 ];
