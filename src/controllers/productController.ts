@@ -64,7 +64,8 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
             { title: { contains: search as string, mode: 'insensitive' } },
             { description: { contains: search as string, mode: 'insensitive' } },
             { category: { name: { contains: search as string, mode: 'insensitive' } } },
-            { tags: { some: { name: { contains: (search as string).replace('#', ''), mode: 'insensitive' } } } }
+            { tags: { some: { name: { contains: (search as string).replace('#', ''), mode: 'insensitive' } } } },
+            ...(!isNaN(parseInt(search as string, 10)) ? [{ id: parseInt(search as string, 10) }] : [])
           ]
         } : {},
 
@@ -107,12 +108,39 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
 
 export async function getProductBySlug(req: Request, res: Response, next: NextFunction) {
   try {
+    const slugOrId = req.params.slug as string;
+    const isId = !isNaN(parseInt(slugOrId, 10)) && /^\d+$/.test(slugOrId);
+
     const product = await prisma.product.findUnique({
-      where: { slug: req.params.slug as string },
-      include: { category: true, images: true, variants: true, reviews: { include: { user: { select: { name: true } } } } }
+      where: isId ? { id: parseInt(slugOrId, 10) } : { slug: slugOrId },
+      include: { 
+        category: true, 
+        images: true, 
+        variants: true, 
+        tags: true,
+        reviews: { include: { user: { select: { name: true } } }, orderBy: { createdAt: 'desc' } } 
+      }
     });
 
-    if (!product || !product.isActive) throw createError(404, 'Product not found');
+    if (!product || (!product.isActive && req.user?.role !== 'ADMIN')) {
+      throw createError(404, 'Product not found');
+    }
+    res.json({ success: true, data: product });
+  } catch (err) { next(err); }
+}
+
+// Admin: Get a single product by numeric ID (bypasses isActive check)
+export async function getProductById(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = parseInt(req.params.id as string, 10);
+    if (isNaN(id)) throw createError(400, 'Invalid product ID');
+
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: { category: true, images: true, variants: true, tags: true, reviews: true }
+    });
+
+    if (!product) throw createError(404, 'Product not found');
     res.json({ success: true, data: product });
   } catch (err) { next(err); }
 }
