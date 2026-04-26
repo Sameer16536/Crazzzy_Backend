@@ -24,7 +24,11 @@ export async function listCategories(req: Request, res: Response, next: NextFunc
     });
 
     const formatted = categories.map(c => ({
-      id: c.id, name: c.name, slug: c.slug,
+      id: c.id, 
+      name: c.name, 
+      slug: c.slug,
+      imageUrl: c.imageUrl,
+      parentId: c.parentId,
       product_count: c._count.products
     }));
 
