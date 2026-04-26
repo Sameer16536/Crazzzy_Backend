@@ -76,6 +76,9 @@ export const updateProfileValidation = [
     .optional()
     .trim().notEmpty().withMessage('Name cannot be empty')
     .isLength({ max: 100 }).withMessage('Name too long'),
+  body('email')
+    .optional()
+    .trim().isEmail().normalizeEmail().withMessage('Valid email required'),
   body('phone')
     .optional()
     .trim()
@@ -455,10 +458,10 @@ export async function getProfile(req: Request, res: Response, next: NextFunction
 export async function updateProfile(req: Request, res: Response, next: NextFunction) {
   try {
     validate(req);
-    const { name, phone } = req.body;
+    const { name, phone, email } = req.body;
 
-    if (!name && !phone) {
-      throw createError(400, 'Provide at least one field to update (name or phone)');
+    if (!name && !phone && !email) {
+      throw createError(400, 'Provide at least one field to update (name, email or phone)');
     }
 
     const user = await prisma.user.update({
@@ -466,6 +469,7 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
       data: {
         ...(name && { name: name.trim() }),
         ...(phone && { phone: phone.trim() }),
+        ...(email && { email: email.trim() }),
       },
       select: {
         id: true, name: true, email: true, phone: true, role: true, 
