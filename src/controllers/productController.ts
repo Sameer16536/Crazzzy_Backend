@@ -185,9 +185,8 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
         images: { create: productImagesData },
         variants: {
           create: variantsData.map((v: any) => ({
-            name: v.name,
-            value: v.value,
-            price: v.price ? parseFloat(v.price) : null,
+            variantName: v.variantName,
+            additionalPrice: v.additionalPrice ? parseFloat(v.additionalPrice) : 0,
             stock: v.stock ? parseInt(v.stock) : 0
           }))
         },
@@ -257,9 +256,8 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
         variants: variantsData !== undefined ? {
           deleteMany: {}, // Clear and recreate variants
           create: variantsData.map((v: any) => ({
-            name: v.name,
-            value: v.value,
-            price: v.price ? parseFloat(v.price) : null,
+            variantName: v.variantName,
+            additionalPrice: v.additionalPrice ? parseFloat(v.additionalPrice) : 0,
             stock: v.stock ? parseInt(v.stock) : 0
           }))
         } : undefined,

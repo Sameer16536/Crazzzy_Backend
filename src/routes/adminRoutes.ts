@@ -17,7 +17,7 @@ import {
   updateUserRole, updateUserBanStatus, deleteUser,
 } from '../controllers/adminController';
 
-import { createCoupon, listCoupons } from '../controllers/couponController';
+import { createCoupon, listCoupons, updateCoupon, deleteCoupon } from '../controllers/couponController';
 
 const router = express.Router();
 
@@ -61,5 +61,7 @@ router.delete('/users/:id', deleteUser);
 // Coupons
 router.post('/coupons', createCoupon);
 router.get('/coupons', listCoupons);
+router.patch('/coupons/:id', updateCoupon);
+router.delete('/coupons/:id', deleteCoupon);
 
 export default router;

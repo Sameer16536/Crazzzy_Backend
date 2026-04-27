@@ -22,6 +22,52 @@ export async function createCoupon(req: Request, res: Response, next: NextFuncti
   } catch(err) { next(err); }
 }
 
+export async function updateCoupon(req: Request, res: Response, next: NextFunction) {
+  try {
+    const couponId = parseInt(req.params.id as string, 10);
+    if (isNaN(couponId)) throw createError(400, 'Invalid coupon ID');
+
+    const existing = await prisma.coupon.findUnique({ where: { id: couponId } });
+    if (!existing) throw createError(404, 'Coupon not found');
+
+    const { code, discountType, discountValue, expiresAt, usageLimit, isActive } = req.body;
+
+    // Check code uniqueness if changing code
+    if (code && code !== existing.code) {
+      const dup = await prisma.coupon.findUnique({ where: { code } });
+      if (dup) throw createError(409, 'Coupon code already exists');
+    }
+
+    const updated = await prisma.coupon.update({
+      where: { id: couponId },
+      data: {
+        code, 
+        discountType, 
+        discountValue: discountValue ? Number(discountValue) : undefined, 
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        usageLimit: usageLimit ? Number(usageLimit) : null, 
+        isActive
+      }
+    });
+
+    res.json({ success: true, coupon: updated });
+  } catch(err) { next(err); }
+}
+
+export async function deleteCoupon(req: Request, res: Response, next: NextFunction) {
+  try {
+    const couponId = parseInt(req.params.id as string, 10);
+    if (isNaN(couponId)) throw createError(400, 'Invalid coupon ID');
+
+    const existing = await prisma.coupon.findUnique({ where: { id: couponId } });
+    if (!existing) throw createError(404, 'Coupon not found');
+
+    await prisma.coupon.delete({ where: { id: couponId } });
+
+    res.json({ success: true, message: 'Coupon deleted successfully' });
+  } catch(err) { next(err); }
+}
+
 // User validates coupon
 export async function validateCoupon(req: Request, res: Response, next: NextFunction) {
   try {
