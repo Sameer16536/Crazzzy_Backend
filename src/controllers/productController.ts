@@ -55,8 +55,11 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
 
     const { search, category, isFeatured, isDealOfTheDay } = req.query;
 
+    const isAdmin = req.user?.role === 'ADMIN';
+
     const where: Prisma.ProductWhereInput = {
-      isActive: true,
+      // Only force isActive=true for normal users
+      ...(isAdmin ? {} : { isActive: true }),
       AND: [
         // Logic: Search in Title OR Description OR Category Name
         search ? {
