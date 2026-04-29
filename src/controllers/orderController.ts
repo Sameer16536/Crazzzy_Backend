@@ -246,3 +246,63 @@ export async function getOrderById(req: Request, res: Response, next: NextFuncti
     res.json({ success: true, data: order });
   } catch (err) { next(err); }
 }
+
+export async function cancelOrder(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orderId = parseInt(req.params.id as string, 10);
+    const userId = req.user!.id;
+
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, userId },
+      include: { items: true }
+    });
+
+    if (!order) throw createError(404, 'Order not found');
+
+    // CANCEL ONLY IF NOT SHIPPED/DELIVERED
+    if ([OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.CANCELLED].includes(order.status)) {
+      throw createError(400, `Cannot cancel order in "${order.status}" status`);
+    }
+
+    // HANDLE RAZORPAY REFUND IF PAID
+    if (order.status === OrderStatus.PAID && order.paymentId) {
+      if (!razorpay) throw createError(500, 'Razorpay not configured for refund');
+      
+      try {
+        await razorpay.payments.refund(order.paymentId, {
+          amount: Math.round(Number(order.totalAmount) * 100),
+          notes: { reason: 'User cancelled order' }
+        });
+      } catch (refundErr: any) {
+        console.error('Razorpay Refund Error:', refundErr);
+        // If refund fails, we might still want to cancel but flag it, or throw.
+        // Usually, it's safer to throw if the user expects an automatic refund.
+        throw createError(500, refundErr.description || 'Refund failed via Razorpay');
+      }
+    }
+
+    // RESTORE STOCK & UPDATE STATUS
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: OrderStatus.CANCELLED }
+      });
+
+      for (const item of order.items) {
+        if (item.productVariantId) {
+          await tx.productVariant.update({
+            where: { id: item.productVariantId },
+            data: { stock: { increment: item.quantity } }
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } }
+          });
+        }
+      }
+    });
+
+    res.json({ success: true, message: 'Order cancelled successfully and stock restored.' });
+  } catch (err) { next(err); }
+}

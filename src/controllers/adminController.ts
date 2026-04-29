@@ -67,8 +67,39 @@ export async function updateOrderStatus(req: Request, res: Response, next: NextF
       throw createError(400, `Invalid status`);
     }
 
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    const order = await prisma.order.findUnique({ 
+      where: { id: orderId },
+      include: { items: true } 
+    });
     if (!order) throw createError(404, 'Order not found');
+
+    // If status is being changed to CANCELLED and it wasn't already CANCELLED
+    if (status === OrderStatus.CANCELLED && order.status !== OrderStatus.CANCELLED) {
+      await prisma.$transaction(async (tx) => {
+        // Update status
+        await tx.order.update({
+          where: { id: orderId },
+          data: { status: OrderStatus.CANCELLED }
+        });
+
+        // Restore stock
+        for (const item of order.items) {
+          if (item.productVariantId) {
+            await tx.productVariant.update({
+              where: { id: item.productVariantId },
+              data: { stock: { increment: item.quantity } }
+            });
+          } else {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } }
+            });
+          }
+        }
+      });
+      
+      return res.json({ success: true, message: `Order cancelled and stock restored.` });
+    }
 
     const updateData: any = {};
     if (status) updateData.status = status;

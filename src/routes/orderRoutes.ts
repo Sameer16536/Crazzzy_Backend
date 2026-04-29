@@ -1,7 +1,7 @@
 import express from 'express';
 import { authenticate } from '../middlewares/authMiddleware';
 import {
-  createOrder, verifyPayment, getUserOrders, getOrderById,
+  createOrder, verifyPayment, getUserOrders, getOrderById, cancelOrder,
   createOrderValidation, verifyPaymentValidation,
 } from '../controllers/orderController';
 import { validateCoupon } from '../controllers/couponController';
@@ -14,6 +14,7 @@ router.post('/', createOrderValidation, createOrder);
 router.post('/verify-payment', verifyPaymentValidation, verifyPayment);
 router.get('/', getUserOrders);
 router.get('/:id', getOrderById);
+router.post('/:id/cancel', cancelOrder);
 
 // Order specifics
 router.post('/apply-coupon', validateCoupon);
