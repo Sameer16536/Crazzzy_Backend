@@ -43,7 +43,7 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // ── Static Files (Uploaded Images) ───────────────────────────────────────────
-app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use('/public', express.static(path.join(process.cwd(), 'public')));
 
 // ── Health Check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

@@ -260,7 +260,7 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
     if (!order) throw createError(404, 'Order not found');
 
     // CANCEL ONLY IF NOT SHIPPED/DELIVERED
-    if ([OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.CANCELLED].includes(order.status)) {
+    if (([OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.CANCELLED] as OrderStatus[]).includes(order.status)) {
       throw createError(400, `Cannot cancel order in "${order.status}" status`);
     }
 
@@ -269,15 +269,20 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
       if (!razorpay) throw createError(500, 'Razorpay not configured for refund');
       
       try {
+        console.log(`[Refund] Initiating for Payment ID: ${order.paymentId}, Amount: ${order.totalAmount}`);
         await razorpay.payments.refund(order.paymentId, {
           amount: Math.round(Number(order.totalAmount) * 100),
           notes: { reason: 'User cancelled order' }
         });
       } catch (refundErr: any) {
-        console.error('Razorpay Refund Error:', refundErr);
-        // If refund fails, we might still want to cancel but flag it, or throw.
-        // Usually, it's safer to throw if the user expects an automatic refund.
-        throw createError(500, refundErr.description || 'Refund failed via Razorpay');
+        console.error('Razorpay Refund Error:', JSON.stringify(refundErr, null, 2));
+        
+        // If in development/test, allow cancellation to proceed even if refund fails (for fake IDs)
+        if (process.env.NODE_ENV !== 'production') {
+           console.warn("Dev/Test Mode: Refund failed (likely due to fake Payment ID), proceeding with cancellation anyway.");
+        } else {
+           throw createError(500, refundErr.description || 'Refund failed via Razorpay. Please contact support.');
+        }
       }
     }
 
