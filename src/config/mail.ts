@@ -13,6 +13,8 @@ export const transporter = nodemailer.createTransport({
   maxConnections: 3,
   rateDelta     : 1000,
   rateLimit     : 5,
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 5000,    // 5 seconds
 });
 
 transporter.verify((err: Error | null) => {

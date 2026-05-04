@@ -184,7 +184,9 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
     }
 
     const otp = await createOtp(email, OtpType.VERIFICATION);
-    await sendVerificationEmail(email, otp);
+    sendVerificationEmail(email, otp).catch((err) =>
+      console.error('[Mail] Verification email failed:', err.message)
+    );
 
     res.status(201).json({
       success: true,
@@ -233,7 +235,9 @@ export async function resendOtp(req: Request, res: Response, next: NextFunction)
     }
 
     const otp = await createOtp(email, OtpType.VERIFICATION);
-    await sendVerificationEmail(email, otp);
+    sendVerificationEmail(email, otp).catch((err) =>
+      console.error('[Mail] Resend OTP email failed:', err.message)
+    );
 
     res.json({ success: true, message: 'OTP resent successfully' });
   } catch (err) {
@@ -363,7 +367,9 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
     }
 
     const otp = await createOtp(email, OtpType.PASSWORD_RESET);
-    await sendPasswordResetEmail(email, otp);
+    sendPasswordResetEmail(email, otp).catch((err) =>
+      console.error('[Mail] Password reset email failed:', err.message)
+    );
 
     res.json({
       success: true,
