@@ -7,7 +7,7 @@ export const transporter = nodemailer.createTransport({
   secure: process.env.SMTP_SECURE === 'true',
   auth  : {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    pass: (process.env.SMTP_PASS || '').replace(/\s/g, ''),
   },
   pool          : true,
   maxConnections: 3,
@@ -91,7 +91,7 @@ function otpBlock(otp: string): string {
 
 export async function sendMail(options: { to: string, subject: string, html: string, text: string }) {
   return transporter.sendMail({
-    from   : `"${BRAND_NAME}.in" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    from   : process.env.SMTP_FROM || `"${BRAND_NAME}.in" <${process.env.SMTP_USER}>`,
     to     : options.to,
     subject: options.subject,
     html   : options.html,
