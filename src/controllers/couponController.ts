@@ -7,14 +7,31 @@ export async function createCoupon(req: Request, res: Response, next: NextFuncti
   try {
     const { code, discountType, discountValue, expiresAt, usageLimit, isActive } = req.body;
 
-    const existing = await prisma.coupon.findUnique({ where: { code }});
+    if (!code || typeof code !== 'string' || code.trim().length === 0) {
+      throw createError(422, 'Coupon code is required');
+    }
+    if (!['PERCENTAGE', 'FIXED'].includes(discountType)) {
+      throw createError(422, 'discountType must be PERCENTAGE or FIXED');
+    }
+    const parsedValue = parseFloat(discountValue);
+    if (isNaN(parsedValue) || parsedValue <= 0) {
+      throw createError(422, 'discountValue must be a positive number');
+    }
+    if (discountType === 'PERCENTAGE' && parsedValue > 100) {
+      throw createError(422, 'Percentage discount cannot exceed 100%');
+    }
+
+    const existing = await prisma.coupon.findUnique({ where: { code: code.trim().toUpperCase() }});
     if (existing) throw createError(409, 'Coupon code already exists');
 
     const coupon = await prisma.coupon.create({
       data: {
-        code, discountType, discountValue, 
+        code: code.trim().toUpperCase(),
+        discountType,
+        discountValue: parsedValue,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
-        usageLimit, isActive: isActive ?? true
+        usageLimit: usageLimit ? parseInt(usageLimit) : null,
+        isActive: isActive ?? true
       }
     });
 

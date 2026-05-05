@@ -12,11 +12,10 @@ router.use(authenticate);
 
 router.post('/', createOrderValidation, createOrder);
 router.post('/verify-payment', verifyPaymentValidation, verifyPayment);
+// IMPORTANT: /apply-coupon MUST be before /:id — otherwise Express matches "apply-coupon" as the :id param
+router.post('/apply-coupon', validateCoupon);
 router.get('/', getUserOrders);
 router.get('/:id', getOrderById);
 router.post('/:id/cancel', cancelOrder);
-
-// Order specifics
-router.post('/apply-coupon', validateCoupon);
 
 export default router;
