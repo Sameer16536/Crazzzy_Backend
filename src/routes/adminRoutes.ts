@@ -1,6 +1,7 @@
 import express from 'express';
 import { authenticate, requireAdmin } from '../middlewares/authMiddleware';
 import upload from '../middlewares/uploadMiddleware';
+import { processAndUploadImage } from '../middlewares/sharpMiddleware';
 
 import {
   createProduct, updateProduct, deleteProduct, bulkProductUpdate, getProductById,
@@ -24,7 +25,7 @@ const router = express.Router();
 router.use(authenticate, requireAdmin);
 
 // Standalone Image Upload (Returns Cloudinary details immediately)
-router.post('/upload', upload.single('image'), (req, res) => {
+router.post('/upload', upload.single('image'), processAndUploadImage, (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
   
   res.json({
@@ -37,15 +38,15 @@ router.post('/upload', upload.single('image'), (req, res) => {
 router.get('/stats', getDashboardStats);
 
 // Products (now supports multiple images array)
-router.post('/products', upload.array('images', 5), productCreateValidation, createProduct);
+router.post('/products', upload.array('images', 5), processAndUploadImage, productCreateValidation, createProduct);
 router.patch('/products/bulk-update', bulkProductUpdate);
 router.get('/products/:id', getProductById);
-router.put('/products/:id', upload.array('images', 5), productUpdateValidation, updateProduct);
+router.put('/products/:id', upload.array('images', 5), processAndUploadImage, productUpdateValidation, updateProduct);
 router.delete('/products/:id', deleteProduct);
 
 // Categories
-router.post('/categories', upload.single('image'), categoryValidation, createCategory);
-router.put('/categories/:id', upload.single('image'), categoryValidation, updateCategory);
+router.post('/categories', upload.single('image'), processAndUploadImage, categoryValidation, createCategory);
+router.put('/categories/:id', upload.single('image'), processAndUploadImage, categoryValidation, updateCategory);
 router.delete('/categories/:id', deleteCategory);
 
 // Orders
