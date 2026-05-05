@@ -253,7 +253,9 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw createError(401, 'Invalid email or password');
 
-    if (!user.isVerified) throw createError(403, 'Please verify your email before logging in');
+    if (!user.isVerified && user.role !== Role.ADMIN) {
+      throw createError(403, 'Please verify your email before logging in');
+    }
     if (user.isBanned) throw createError(403, 'Your account has been suspended. Contact support.');
 
     const match = await bcrypt.compare(password, user.passwordHash);

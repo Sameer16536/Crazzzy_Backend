@@ -2,17 +2,13 @@ import nodemailer from 'nodemailer';
 import { Order, OrderItem, Product } from '@prisma/client';
 
 export const transporter = nodemailer.createTransport({
-  host  : process.env.SMTP_HOST,
-  port  : parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: process.env.SMTP_SECURE === 'true',
+  host  : process.env.SMTP_HOST?.trim(),
+  port  : parseInt(process.env.SMTP_PORT?.trim() || '587', 10),
+  secure: process.env.SMTP_SECURE?.trim() === 'true',
   auth  : {
-    user: process.env.SMTP_USER,
-    pass: (process.env.SMTP_PASS || '').replace(/\s/g, ''),
+    user: process.env.SMTP_USER?.trim(),
+    pass: process.env.SMTP_PASS?.trim() || '',
   },
-  pool          : true,
-  maxConnections: 3,
-  rateDelta     : 1000,
-  rateLimit     : 5,
   connectionTimeout: 10000, // 10 seconds
   greetingTimeout: 5000,    // 5 seconds
 });
