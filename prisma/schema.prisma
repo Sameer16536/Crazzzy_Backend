@@ -124,9 +124,10 @@ model Product {
 
   tags Tag[] @relation("ProductTags")
 
-  isFeatured     Boolean @default(false) @map("is_featured")
-  isDealOfTheDay Boolean @default(false) @map("is_deal_of_the_day")
-  isActive       Boolean @default(true) @map("is_active")
+  isFeatured     Boolean   @default(false) @map("is_featured")
+  isDealOfTheDay Boolean   @default(false) @map("is_deal_of_the_day")
+  dealEndTime    DateTime? @map("deal_end_time")
+  isActive       Boolean   @default(true) @map("is_active")
 
   ratingAvg   Decimal @default(0) @map("rating_avg") @db.Decimal(3, 2)
   reviewCount Int     @default(0) @map("review_count")

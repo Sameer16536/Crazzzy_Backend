@@ -15,6 +15,7 @@ export const productCreateValidation = [
   body('description').optional({ nullable: true }).trim(),
   body('isFeatured').optional().isBoolean(),
   body('isDealOfTheDay').optional().isBoolean(),
+  body('dealEndTime').optional({ nullable: true }).isISO8601().withMessage('dealEndTime must be a valid ISO 8601 date string'),
   body('isActive').optional().isBoolean(),
 ];
 
@@ -27,6 +28,7 @@ export const productUpdateValidation = [
   body('description').optional({ nullable: true }).trim(),
   body('isFeatured').optional().isBoolean(),
   body('isDealOfTheDay').optional().isBoolean(),
+  body('dealEndTime').optional({ nullable: true }).isISO8601().withMessage('dealEndTime must be a valid ISO 8601 date string'),
   body('isActive').optional().isBoolean(),
 ];
 
@@ -57,6 +59,19 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
 
     const isAdmin = req.user?.role === 'ADMIN';
 
+    // Auto-expire deals whose dealEndTime has passed
+    // This approach is server-authoritative: the DB is the single source of truth
+    const now = new Date();
+    const isDealFilter = isDealOfTheDay
+      ? {
+          isDealOfTheDay: true,
+          OR: [
+            { dealEndTime: null },
+            { dealEndTime: { gt: now } }
+          ]
+        }
+      : {};
+
     const where: Prisma.ProductWhereInput = {
       // Only force isActive=true for normal users
       ...(isAdmin ? {} : { isActive: true }),
@@ -84,7 +99,7 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
 
         // Keep additional flags
         isFeatured ? { isFeatured: true } : {},
-        isDealOfTheDay ? { isDealOfTheDay: true } : {},
+        isDealOfTheDay ? isDealFilter : {},
       ]
     };
 
@@ -152,7 +167,7 @@ export async function getProductById(req: Request, res: Response, next: NextFunc
 export async function createProduct(req: Request, res: Response, next: NextFunction) {
   try {
     validate(req);
-    const { title, description, price, originalPrice, stock, categoryId, isFeatured, isDealOfTheDay, isActive } = req.body;
+    const { title, description, price, originalPrice, stock, categoryId, isFeatured, isDealOfTheDay, dealEndTime, isActive } = req.body;
     const slug = makeSlug(title);
 
     const dup = await prisma.product.findUnique({ where: { slug } });
@@ -179,6 +194,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
         originalPrice: originalPrice ? parseFloat(originalPrice) : null,
         isFeatured: isFeatured === 'true' || isFeatured === true,
         isDealOfTheDay: isDealOfTheDay === 'true' || isDealOfTheDay === true,
+        dealEndTime: dealEndTime ? new Date(dealEndTime) : null,
         isActive: isActive !== 'false',
         imageUrl: imageUrl || (productImagesData.length > 0 ? productImagesData[0].imageUrl : null),
         publicId: mainPublicId || (productImagesData.length > 0 ? productImagesData[0].publicId : null),
@@ -211,7 +227,7 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
 
     if (!existing) throw createError(404, 'Product not found');
 
-    const { title, description, price, originalPrice, stock, categoryId, isFeatured, isDealOfTheDay, isActive } = req.body;
+    const { title, description, price, originalPrice, stock, categoryId, isFeatured, isDealOfTheDay, dealEndTime, isActive } = req.body;
     let slug = existing.slug;
 
     if (title && title !== existing.title) {
@@ -237,16 +253,31 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     const tagNames = req.body.tags !== undefined ? parseTags(req.body.tags) : undefined;
     const variantsData = req.body.variants !== undefined ? (typeof req.body.variants === 'string' ? JSON.parse(req.body.variants) : req.body.variants) : undefined;
 
+    // Resolve dealEndTime: accept null to explicitly clear it
+    let resolvedDealEndTime: Date | null | undefined = undefined;
+    if (dealEndTime === null || dealEndTime === 'null' || dealEndTime === '') {
+      resolvedDealEndTime = null;
+    } else if (dealEndTime) {
+      resolvedDealEndTime = new Date(dealEndTime);
+    }
+
+    // If isDealOfTheDay is being set to false, also clear the end time and revert price
+    const isRemovingDeal = isDealOfTheDay === false || isDealOfTheDay === 'false';
+    if (isRemovingDeal) {
+      resolvedDealEndTime = null;
+    }
+
     const product = await prisma.product.update({
       where: { id: productId },
       data: {
         title, slug, description,
         price: price ? parseFloat(price) : undefined,
-        originalPrice: originalPrice ? parseFloat(originalPrice) : undefined,
+        originalPrice: originalPrice !== undefined ? (originalPrice ? parseFloat(originalPrice) : null) : undefined,
         stock: stock ? parseInt(stock) : undefined,
         categoryId: categoryId ? parseInt(categoryId) : undefined,
         isFeatured: isFeatured !== undefined ? (isFeatured === 'true' || isFeatured === true) : undefined,
         isDealOfTheDay: isDealOfTheDay !== undefined ? (isDealOfTheDay === 'true' || isDealOfTheDay === true) : undefined,
+        dealEndTime: resolvedDealEndTime,
         isActive: isActive !== undefined ? (isActive !== 'false' && isActive !== false) : undefined,
         imageUrl,
         publicId: mainPublicId,
