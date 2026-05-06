@@ -1,6 +1,13 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// ── Force IPv4 DNS resolution (MUST be before any network calls) ──────────────
+// Railway's network blocks IPv6 outbound. Without this, Node.js DNS resolver
+// picks IPv6 addresses (e.g. Gmail SMTP returns 2607:f8b0:...) and all
+// TCP connections to external services fail with ENETUNREACH.
+import { setDefaultResultOrder } from 'dns';
+setDefaultResultOrder('ipv4first');
+
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';

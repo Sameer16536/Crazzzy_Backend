@@ -9,13 +9,9 @@ export const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER?.trim(),
     pass: process.env.SMTP_PASS?.trim() || '',
   },
-  // Force IPv4 — Railway does not support IPv6 outbound connections.
-  // Without this, Gmail SMTP resolves to an IPv6 address and times out.
-  // 'family' is not in Nodemailer's TS types but is a valid Node.js socket option.
-  family: 4,
   connectionTimeout: 10000,
   greetingTimeout: 5000,
-} as any);
+});
 
 transporter.verify((err: Error | null) => {
   if (err) console.warn('[Mail] SMTP verification failed:', err.message);
