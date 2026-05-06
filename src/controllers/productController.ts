@@ -63,13 +63,15 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
     // This approach is server-authoritative: the DB is the single source of truth
     const now = new Date();
     const isDealFilter = isDealOfTheDay
-      ? {
+      ? (isAdmin
+        ? { isDealOfTheDay: true }
+        : {
           isDealOfTheDay: true,
           OR: [
             { dealEndTime: null },
             { dealEndTime: { gt: now } }
           ]
-        }
+        })
       : {};
 
     const where: Prisma.ProductWhereInput = {
