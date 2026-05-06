@@ -21,6 +21,12 @@ import { authenticate } from './middlewares/authMiddleware';
 
 const app = express();
 
+// ── Trust Proxy (Required for Railway / any reverse-proxy deployment) ──────────
+// Railway sits behind a load balancer that injects X-Forwarded-For headers.
+// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// and req.ip returns the proxy IP instead of the real client IP.
+app.set('trust proxy', 1);
+
 // ── Security & Performance Middleware ─────────────────────────────────────────
 app.use(helmet());
 app.use(compression());

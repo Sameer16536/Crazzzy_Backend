@@ -9,6 +9,9 @@ export const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER?.trim(),
     pass: process.env.SMTP_PASS?.trim() || '',
   },
+  // Force IPv4 — Railway does not support IPv6 outbound connections.
+  // Without this, Gmail SMTP resolves to an IPv6 address and times out.
+  family: 4,
   connectionTimeout: 10000, // 10 seconds
   greetingTimeout: 5000,    // 5 seconds
 });
