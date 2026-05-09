@@ -11,9 +11,15 @@ export const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER?.trim(),
     pass: process.env.SMTP_PASS?.trim() || '',
   },
-  connectionTimeout: 20000, // Increased to 20s
-  greetingTimeout: 10000,   // Increased to 10s
-  socketTimeout: 30000,     // Added 30s socket timeout
+  connectionTimeout: 20000,
+  greetingTimeout: 10000,
+  socketTimeout: 30000,
+  debug: true,
+  logger: true,
+  tls: {
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2'
+  }
 });
 
 transporter.on('token', token => {
