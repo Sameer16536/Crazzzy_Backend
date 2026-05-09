@@ -102,3 +102,51 @@ export const setCategoryFilters = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message })
   }
 }
+
+export const getCategoryOffers = async (req: Request, res: Response) => {
+  try {
+    const offers = await prisma.categoryOffer.findMany({ orderBy: { createdAt: 'desc' } })
+    res.json(offers)
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const createCategoryOffer = async (req: Request, res: Response) => {
+  try {
+    const { categorySlug, buyQuantity, getQuantity, isActive } = req.body
+    const offer = await prisma.categoryOffer.create({
+      data: {
+        categorySlug,
+        buyQuantity: Number(buyQuantity),
+        getQuantity: Number(getQuantity),
+        isActive: Boolean(isActive)
+      }
+    })
+    res.status(201).json(offer)
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const updateCategoryOffer = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const offer = await prisma.categoryOffer.update({
+      where: { id: Number(id) },
+      data: req.body
+    })
+    res.json(offer)
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const deleteCategoryOffer = async (req: Request, res: Response) => {
+  try {
+    await prisma.categoryOffer.delete({ where: { id: Number(req.params.id) } })
+    res.json({ success: true })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}

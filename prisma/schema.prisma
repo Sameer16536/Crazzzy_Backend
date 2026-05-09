@@ -271,3 +271,15 @@ model CategoryFilter {
   @@unique([category])
   @@map("category_filters")
 }
+
+model CategoryOffer {
+  id           Int      @id @default(autoincrement())
+  categorySlug String   @unique @map("category_slug")
+  buyQuantity  Int      @default(2) @map("buy_quantity")
+  getQuantity  Int      @default(1) @map("get_quantity")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("category_offers")
+}

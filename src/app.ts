@@ -76,7 +76,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/orders',     orderRoutes);
 app.use('/api/admin',      adminRoutes);
 app.use('/api/users',      userRoutes);
-app.use('/api/settings',   settingsRoutes);
+app.use('/api',            settingsRoutes);
 
 // Razorpay specific aliases
 app.post('/api/create-order', authenticate, createOrderValidation, createOrder);
