@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import { setDefaultResultOrder } from 'dns';
+setDefaultResultOrder('ipv4first');
 import { Order, OrderItem, Product } from '@prisma/client';
 
 export const transporter = nodemailer.createTransport({
