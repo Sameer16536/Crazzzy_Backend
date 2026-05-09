@@ -11,6 +11,8 @@ export const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER?.trim(),
     pass: process.env.SMTP_PASS?.trim() || '',
   },
+  family: 4, // Force IPv4 at the socket level
+
   connectionTimeout: 20000,
   greetingTimeout: 10000,
   socketTimeout: 30000,
@@ -20,7 +22,7 @@ export const transporter = nodemailer.createTransport({
     rejectUnauthorized: false,
     minVersion: 'TLSv1.2'
   }
-});
+} as any);
 
 transporter.on('token', token => {
   console.log('[Mail] New refresh token generated');

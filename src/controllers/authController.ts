@@ -450,11 +450,11 @@ export async function getProfile(req: Request, res: Response, next: NextFunction
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
       select: {
-        id: true, name: true, email: true, phone: true, role: true, 
+        id: true, name: true, email: true, phone: true, role: true,
         isVerified: true, isBanned: true, createdAt: true
       }
     });
-    
+
     if (!user) throw createError(404, 'User not found');
 
     res.json({ success: true, user });
@@ -480,7 +480,7 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
         ...(email && { email: email.trim() }),
       },
       select: {
-        id: true, name: true, email: true, phone: true, role: true, 
+        id: true, name: true, email: true, phone: true, role: true,
         isVerified: true, createdAt: true
       }
     });
