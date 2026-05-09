@@ -1,10 +1,10 @@
 import { Request, Response } from 'express'
-import prisma from '../config/prisma'
+import { prisma } from '../config/db'
 
 export const getComboDeals = async (req: Request, res: Response) => {
   try {
-    const deals = await prisma.comboDeal.findMany({ order: { createdAt: 'desc' } })
-    const parsedDeals = deals.map(d => ({
+    const deals = await prisma.comboDeal.findMany({ orderBy: { createdAt: 'desc' } })
+    const parsedDeals = deals.map((d: any) => ({
       ...d,
       bundlePrice: Number(d.bundlePrice),
       eligibleProductIds: JSON.parse(d.eligibleProductIds)
@@ -78,7 +78,7 @@ export const getCategoryFilters = async (req: Request, res: Response) => {
   try {
     const filters = await prisma.categoryFilter.findMany()
     const map: Record<string, string[]> = {}
-    filters.forEach(f => {
+    filters.forEach((f: any) => {
       map[f.category] = JSON.parse(f.tags)
     })
     res.json(map)
@@ -89,7 +89,7 @@ export const getCategoryFilters = async (req: Request, res: Response) => {
 
 export const setCategoryFilters = async (req: Request, res: Response) => {
   try {
-    const { category } = req.params
+    const category = req.params.category as string
     const { tags } = req.body
     
     await prisma.categoryFilter.upsert({
