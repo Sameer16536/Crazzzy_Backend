@@ -247,3 +247,27 @@ model Tag {
 
   @@map("tags")
 }
+
+model ComboDeal {
+  id                 Int      @id @default(autoincrement())
+  title              String   @db.VarChar(255)
+  description        String?  @db.Text
+  requiredQuantity   Int      @map("required_quantity")
+  bundlePrice        Decimal  @map("bundle_price") @db.Decimal(10, 2)
+  eligibleProductIds String   @map("eligible_product_ids") @db.Text // JSON array string
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@map("combo_deals")
+}
+
+model CategoryFilter {
+  id         Int      @id @default(autoincrement())
+  category   String   @db.VarChar(255) // Slug
+  tags       String   @db.Text // JSON array string
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([category])
+  @@map("category_filters")
+}

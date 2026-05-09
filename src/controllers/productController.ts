@@ -233,7 +233,15 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
     let slug = existing.slug;
 
     if (title && title !== existing.title) {
-      slug = makeSlug(title);
+      const candidateSlug = makeSlug(title);
+      // Check if the new slug conflicts with a DIFFERENT product
+      const slugConflict = await prisma.product.findUnique({ where: { slug: candidateSlug } });
+      if (slugConflict && slugConflict.id !== productId) {
+        // Append the product ID to guarantee uniqueness (e.g. "my-poster-42")
+        slug = `${candidateSlug}-${productId}`;
+      } else {
+        slug = candidateSlug;
+      }
     }
 
     let imageUrl = existing.imageUrl;

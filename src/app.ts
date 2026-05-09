@@ -67,6 +67,8 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
 });
 
+import settingsRoutes from './routes/settingsRoutes';
+
 // ── API Routes (prefixed at /api) ─────────────────────────────────────────────
 app.use('/api/auth',       authRoutes);
 app.use('/api/products',   productRoutes);
@@ -74,6 +76,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/orders',     orderRoutes);
 app.use('/api/admin',      adminRoutes);
 app.use('/api/users',      userRoutes);
+app.use('/api/settings',   settingsRoutes);
 
 // Razorpay specific aliases
 app.post('/api/create-order', authenticate, createOrderValidation, createOrder);
