@@ -1,37 +1,7 @@
-import nodemailer from 'nodemailer';
-import { setDefaultResultOrder } from 'dns';
-setDefaultResultOrder('ipv4first');
+import { Resend } from 'resend';
 import { Order, OrderItem, Product } from '@prisma/client';
 
-export const transporter = nodemailer.createTransport({
-  host  : process.env.SMTP_HOST?.trim(),
-  port  : parseInt(process.env.SMTP_PORT?.trim() || '587', 10),
-  secure: process.env.SMTP_SECURE?.trim() === 'true',
-  auth  : {
-    user: process.env.SMTP_USER?.trim(),
-    pass: process.env.SMTP_PASS?.trim() || '',
-  },
-  family: 4, // Force IPv4 at the socket level
-
-  connectionTimeout: 20000,
-  greetingTimeout: 10000,
-  socketTimeout: 30000,
-  debug: true,
-  logger: true,
-  tls: {
-    rejectUnauthorized: false,
-    minVersion: 'TLSv1.2'
-  }
-} as any);
-
-transporter.on('token', token => {
-  console.log('[Mail] New refresh token generated');
-});
-
-transporter.verify((err: Error | null) => {
-  if (err) console.warn('[Mail] SMTP verification failed:', err.message);
-  else     console.log('[Mail] SMTP transporter ready');
-});
+export const resend = new Resend(process.env.RESEND_API_KEY);
 
 const BRAND_COLOR  = '#FF4B00';
 const BRAND_NAME   = 'Crazzzy';
@@ -101,13 +71,25 @@ function otpBlock(otp: string): string {
 }
 
 export async function sendMail(options: { to: string, subject: string, html: string, text: string }) {
-  return transporter.sendMail({
-    from   : process.env.SMTP_FROM || `"${BRAND_NAME}.in" <${process.env.SMTP_USER}>`,
-    to     : options.to,
-    subject: options.subject,
-    html   : options.html,
-    text   : options.text,
-  });
+  try {
+    const { data, error } = await resend.emails.send({
+      from: process.env.SMTP_FROM || `"${BRAND_NAME}.in" <onboarding@resend.dev>`,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+    });
+
+    if (error) {
+      console.error('[Mail] Resend API Error:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (err: any) {
+    console.error('[Mail] Resend failure:', err.message);
+    throw err;
+  }
 }
 
 export async function sendVerificationEmail(email: string, otp: string) {
@@ -297,4 +279,3 @@ export async function sendOrderDeliveredEmail(email: string, name: string, order
     text: `Your order #${order.id} has been delivered. We hope you enjoy it!`
   });
 }
-
