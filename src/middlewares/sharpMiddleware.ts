@@ -35,7 +35,8 @@ const uploadFromBuffer = (buffer: Buffer, folder: string): Promise<any> => {
  */
 export const processAndUploadImage = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const folder = 'crazzzy_uploads';
+    const categorySlug = req.body.categorySlug || 'uploads';
+    const folder = `crazzzy/${categorySlug}`;
 
     // Handle single file (upload.single)
     if (req.file) {
