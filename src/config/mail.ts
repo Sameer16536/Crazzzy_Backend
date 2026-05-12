@@ -7,6 +7,11 @@ const BRAND_COLOR  = '#FF4B00';
 const BRAND_NAME   = 'Crazzzy';
 const BRAND_DOMAIN = 'crazzzy.in';
 
+const AUTH_MAIL    = `"${BRAND_NAME}.in Verify" <verify@${BRAND_DOMAIN}>`;
+const ORDERS_MAIL  = `"${BRAND_NAME}.in Orders" <orders@${BRAND_DOMAIN}>`;
+const ACCOUNT_MAIL = `"${BRAND_NAME}.in Account" <account@${BRAND_DOMAIN}>`;
+const DEFAULT_FROM = `"${BRAND_NAME}.in" <noreply@${BRAND_DOMAIN}>`;
+
 function baseTemplate(content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -70,10 +75,10 @@ function otpBlock(otp: string): string {
     </div>`;
 }
 
-export async function sendMail(options: { to: string, subject: string, html: string, text: string }) {
+export async function sendMail(options: { to: string, subject: string, html: string, text: string, from?: string }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.SMTP_FROM || `"${BRAND_NAME}.in" <onboarding@resend.dev>`,
+      from: options.from || process.env.SMTP_FROM || DEFAULT_FROM,
       to: options.to,
       subject: options.subject,
       html: options.html,
@@ -105,6 +110,7 @@ export async function sendVerificationEmail(email: string, otp: string) {
   `);
 
   await sendMail({
+    from   : AUTH_MAIL,
     to     : email,
     subject: `${otp} — Verify your ${BRAND_NAME}.in account`,
     html,
@@ -125,6 +131,7 @@ export async function sendPasswordResetEmail(email: string, otp: string) {
   `);
 
   await sendMail({
+    from   : AUTH_MAIL,
     to     : email,
     subject: `${otp} — Reset your ${BRAND_NAME}.in password`,
     html,
@@ -144,6 +151,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
   `);
 
   await sendMail({
+    from   : ACCOUNT_MAIL,
     to     : email,
     subject: `Welcome to ${BRAND_NAME}.in — You're all set! 🎉`,
     html,
@@ -163,6 +171,7 @@ export async function sendLoginAlertEmail(email: string, name: string) {
   `);
 
   await sendMail({
+    from   : ACCOUNT_MAIL,
     to     : email,
     subject: `New sign-in to your ${BRAND_NAME}.in account`,
     html,
@@ -210,6 +219,7 @@ export async function sendOrderReceiptEmail(email: string, name: string, order: 
   `);
 
   await sendMail({
+    from   : ORDERS_MAIL,
     to     : email,
     subject: `Order Confirmation #${order.id} — ${BRAND_NAME}.in`,
     html,
@@ -244,6 +254,7 @@ export async function sendOrderShippedEmail(email: string, name: string, order: 
   `);
 
   await sendMail({
+    from: ORDERS_MAIL,
     to: email,
     subject: `Order Shipped #${order.id} — Track your package 🚚`,
     html,
@@ -273,6 +284,7 @@ export async function sendOrderDeliveredEmail(email: string, name: string, order
   `);
 
   await sendMail({
+    from: ORDERS_MAIL,
     to: email,
     subject: `Delivered: Your order #${order.id} 🏠`,
     html,

@@ -108,7 +108,6 @@ async function runMigration() {
                 // 3. Upload to Cloudinary
                 const upload = await cloudinary.uploader.upload(filePath, {
                     folder: `crazzzy/${categorySlug}`,
-                    format: 'webp',
                 });
 
                 // 4. Save to Database

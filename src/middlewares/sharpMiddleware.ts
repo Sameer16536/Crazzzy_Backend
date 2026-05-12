@@ -18,7 +18,6 @@ const uploadFromBuffer = (buffer: Buffer, folder: string): Promise<any> => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: folder,
-        format: 'webp', // Redundant but good for safety
         resource_type: 'image',
       },
       (error, result) => {
