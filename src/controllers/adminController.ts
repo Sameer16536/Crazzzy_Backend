@@ -38,8 +38,19 @@ export async function listAllOrders(req: Request, res: Response, next: NextFunct
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '20', 10)));
     const skip = (page - 1) * limit;
     const status = req.query.status as OrderStatus | undefined;
+    const search = req.query.search as string | undefined;
 
-    const where = status ? { status } : {};
+    const where: any = {};
+    if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { id: !isNaN(parseInt(search)) ? parseInt(search) : undefined },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { shippingAddress: { contains: search, mode: 'insensitive' } },
+        { trackingNumber: { contains: search, mode: 'insensitive' } }
+      ].filter(item => item.id !== undefined || item.user || item.shippingAddress || item.trackingNumber);
+    }
 
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
