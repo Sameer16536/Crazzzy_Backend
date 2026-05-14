@@ -129,6 +129,18 @@ async function consumeOtp(email: string, otp: string, type: OtpType) {
   });
 }
 
+async function verifyOtpOnly(email: string, otp: string, type: OtpType) {
+  const record = await prisma.otpCode.findFirst({
+    where: { email, type, isUsed: false },
+    orderBy: { id: 'desc' },
+  });
+
+  if (!record) throw createError(400, 'No valid OTP found for this email');
+  if (record.isUsed) throw createError(400, 'OTP already used');
+  if (new Date() > record.expiresAt) throw createError(400, 'OTP has expired');
+  if (record.otp !== otp.trim()) throw createError(400, 'Invalid OTP');
+}
+
 async function storeRefreshToken(userId: number) {
   const rawToken = generateRefreshToken();
   const tokenHash = hashToken(rawToken);
@@ -200,7 +212,12 @@ export async function signup(req: Request, res: Response, next: NextFunction) {
 export async function verifyOtp(req: Request, res: Response, next: NextFunction) {
   try {
     validate(req);
-    const { email, otp } = req.body;
+    const { email, otp, type = OtpType.VERIFICATION } = req.body;
+
+    if (type === OtpType.PASSWORD_RESET) {
+      await verifyOtpOnly(email, otp, OtpType.PASSWORD_RESET);
+      return res.json({ success: true, message: 'OTP verified successfully' });
+    }
 
     await consumeOtp(email, otp, OtpType.VERIFICATION);
 
@@ -226,18 +243,28 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
 
 export async function resendOtp(req: Request, res: Response, next: NextFunction) {
   try {
-    const { email } = req.body;
+    const { email, type = OtpType.VERIFICATION } = req.body;
     if (!email) throw createError(422, 'Email is required');
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || user.isVerified) {
-      throw createError(404, 'No unverified account found for this email');
-    }
 
-    const otp = await createOtp(email, OtpType.VERIFICATION);
-    sendVerificationEmail(email, otp).catch((err) =>
-      console.error('[Mail] Resend OTP email failed:', err.message)
-    );
+    if (type === OtpType.PASSWORD_RESET) {
+      if (!user || !user.isVerified) {
+        throw createError(404, 'Verified account not found for this email');
+      }
+      const otp = await createOtp(email, OtpType.PASSWORD_RESET);
+      sendPasswordResetEmail(email, otp).catch((err) =>
+        console.error('[Mail] Resend Reset OTP failed:', err.message)
+      );
+    } else {
+      if (!user || user.isVerified) {
+        throw createError(404, 'No unverified account found for this email');
+      }
+      const otp = await createOtp(email, OtpType.VERIFICATION);
+      sendVerificationEmail(email, otp).catch((err) =>
+        console.error('[Mail] Resend Signup OTP failed:', err.message)
+      );
+    }
 
     res.json({ success: true, message: 'OTP resent successfully' });
   } catch (err) {
