@@ -84,6 +84,7 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
             { title: { contains: search as string, mode: 'insensitive' } },
             { description: { contains: search as string, mode: 'insensitive' } },
             { category: { name: { contains: search as string, mode: 'insensitive' } } },
+            { category: { parent: { name: { contains: search as string, mode: 'insensitive' } } } },
             { tags: { some: { name: { contains: (search as string).replace('#', ''), mode: 'insensitive' } } } },
             ...(!isNaN(parseInt(search as string, 10)) ? [{ id: parseInt(search as string, 10) }] : [])
           ]
