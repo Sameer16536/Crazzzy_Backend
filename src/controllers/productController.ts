@@ -361,7 +361,25 @@ export async function deleteProduct(req: Request, res: Response, next: NextFunct
       await removeFile(img.publicId).catch(() => { });
     }
 
+    // 1. Check if the product has been ordered
+    const hasOrders = await prisma.orderItem.findFirst({
+      where: { productId: productId }
+    });
+
+    if (hasOrders) {
+      // 2a. Soft Delete: Keep the record for order history, but hide from store
+      await prisma.product.update({
+        where: { id: productId },
+        data: { isActive: false, stock: 0 }
+      });
+      return res.json({ 
+        success: true, 
+        message: 'Product has order history. It has been deactivated and hidden from the store to preserve records.' 
+      });
+    }
+
+    // 2b. Hard Delete: No orders exist, safe to remove entirely
     await prisma.product.delete({ where: { id: productId } });
-    res.json({ success: true, message: 'Product deleted' });
+    res.json({ success: true, message: 'Product deleted successfully' });
   } catch (err) { next(err); }
 }
