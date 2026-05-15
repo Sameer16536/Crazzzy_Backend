@@ -8,6 +8,12 @@ export interface PricingItem {
   categorySlug: string;
 }
 
+export interface PricingCategory {
+  id: number;
+  slug: string;
+  parentId: number | null;
+}
+
 export interface PricingResult {
   subtotal: number;
   comboDiscount: number;
@@ -21,7 +27,8 @@ export interface PricingResult {
 export function calculateOrderPricing(
   items: PricingItem[],
   offers: CategoryOffer[],
-  deals: ComboDeal[]
+  deals: ComboDeal[],
+  categories: PricingCategory[] = []
 ): PricingResult {
   let subtotal = 0;
   let comboDiscount = 0;
@@ -31,9 +38,27 @@ export function calculateOrderPricing(
     subtotal += item.price * item.quantity;
   });
 
+  // Helper to find best matching offer (self or ancestor)
+  const getOfferForCategory = (slug: string): CategoryOffer | null => {
+    // 1. Direct match
+    const direct = offers.find(o => o.isActive && o.categorySlug === slug);
+    if (direct) return direct;
+    
+    // 2. Ancestor match
+    let currentCat = categories.find(c => c.slug === slug);
+    while (currentCat?.parentId) {
+      const parentId = currentCat.parentId;
+      const parent = categories.find(c => c.id === parentId);
+      if (!parent) break;
+      const parentOffer = offers.find(o => o.isActive && o.categorySlug === parent.slug);
+      if (parentOffer) return parentOffer;
+      currentCat = parent;
+    }
+    return null;
+  };
+
   // 2. Apply Combo Deals (Fixed Price Bundles)
-  // Note: For simplicity, we handle one bundle type per order or identify them by product set.
-  // In our current system, ComboDeals are applied if a certain quantity of eligible products is met.
+  // ... (keeping existing logic for combo deals)
   const activeDeals = deals.filter(d => d.isActive);
   const remainingItems = [...items.map(i => ({ ...i }))];
   
@@ -41,7 +66,6 @@ export function calculateOrderPricing(
     const eligibleIds = JSON.parse(deal.eligibleProductIds) as number[];
     const isGlobal = eligibleIds.length === 0;
     
-    // Count eligible items
     let eligibleCount = 0;
     remainingItems.forEach(i => {
       if (isGlobal || eligibleIds.includes(i.productId)) {
@@ -49,19 +73,13 @@ export function calculateOrderPricing(
       }
     });
 
-    // Calculate how many bundles can be formed
     const bundleCount = Math.floor(eligibleCount / deal.requiredQuantity);
     if (bundleCount > 0) {
       const requiredTotal = bundleCount * deal.requiredQuantity;
       const bundlePrice = bundleCount * Number(deal.bundlePrice);
-      
-      // Calculate what these items would have cost normally
       let normalCost = 0;
       let removedCount = 0;
-      
-      // Sort by price ascending to give the discount on the cheapest items (standard practice)
       remainingItems.sort((a, b) => a.price - b.price);
-      
       for (const item of remainingItems) {
         if (removedCount >= requiredTotal) break;
         const take = Math.min(item.quantity, requiredTotal - removedCount);
@@ -69,40 +87,35 @@ export function calculateOrderPricing(
         item.quantity -= take;
         removedCount += take;
       }
-      
       comboDiscount += (normalCost - bundlePrice);
     }
   }
 
   // 3. Apply Category Offers (Buy X Get Y)
-  // Only apply to items NOT already consumed by a Combo Deal
-  const groupMap: Record<string, { totalQuantity: number, items: any[], offer: CategoryOffer }> = {};
+  // Group items by the OFFER they qualify for
+  const groupMap: Record<number, { totalQuantity: number, items: any[], offer: CategoryOffer }> = {};
 
   for (const item of remainingItems) {
     if (item.quantity <= 0) continue;
     
-    const offer = offers.find(o => o.isActive && o.categorySlug === item.categorySlug);
+    const offer = getOfferForCategory(item.categorySlug);
     if (!offer) continue;
 
-    // Use a key for category + variant price (or just category slug if we want to mix prices)
-    // To match frontend, we group by CategorySlug
-    const groupKey = offer.categorySlug;
-
-    if (!groupMap[groupKey]) {
-      groupMap[groupKey] = { totalQuantity: 0, items: [], offer };
+    const offerId = offer.id;
+    if (!groupMap[offerId]) {
+      groupMap[offerId] = { totalQuantity: 0, items: [], offer };
     }
-    groupMap[groupKey].totalQuantity += item.quantity;
-    groupMap[groupKey].items.push(item);
+    groupMap[offerId].totalQuantity += item.quantity;
+    groupMap[offerId].items.push(item);
   }
 
-  for (const key in groupMap) {
-    const { totalQuantity, items: groupItems, offer } = groupMap[key];
+  for (const id in groupMap) {
+    const { totalQuantity, items: groupItems, offer } = groupMap[id];
     const cycle = offer.buyQuantity + offer.getQuantity;
     const freeUnits = Math.floor(totalQuantity / cycle) * offer.getQuantity;
     
     if (freeUnits > 0) {
       let remainingFree = freeUnits;
-      // Give discount on cheapest items in the group
       const sorted = [...groupItems].sort((a, b) => a.price - b.price);
       for (const item of sorted) {
         if (remainingFree <= 0) break;
