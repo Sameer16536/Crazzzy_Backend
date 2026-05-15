@@ -68,6 +68,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 import settingsRoutes from './routes/settingsRoutes';
+import cartRoutes from './routes/cartRoutes';
 
 // ── API Routes (prefixed at /api) ─────────────────────────────────────────────
 app.use('/api/auth',       authRoutes);
@@ -77,6 +78,7 @@ app.use('/api/orders',     orderRoutes);
 app.use('/api/admin',      adminRoutes);
 app.use('/api/users',      userRoutes);
 app.use('/api/settings',   settingsRoutes);
+app.use('/api/cart',       cartRoutes);
 app.use('/api',            settingsRoutes);
 
 // Razorpay specific aliases
