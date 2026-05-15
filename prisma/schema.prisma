@@ -196,6 +196,7 @@ model Order {
   phoneNumber     String      @map("phone_number") @db.VarChar(20)
   couponCode      String?     @map("coupon_code") @db.VarChar(50)
   discountApplied Decimal     @default(0) @map("discount_applied") @db.Decimal(10, 2)
+  shippingAmount  Decimal     @default(0) @map("shipping_amount") @db.Decimal(10, 2)
 
   // Logistics & Tracking (Amazon/Flipkart style)
   trackingNumber    String?   @map("tracking_number") @db.VarChar(255)

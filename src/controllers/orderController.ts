@@ -6,6 +6,7 @@ import { createError } from '../middlewares/errorMiddleware';
 import { sendOrderReceiptEmail } from '../config/mail';
 import { OrderStatus, DiscountType } from '@prisma/client';
 import Razorpay from 'razorpay';
+import { calculateOrderPricing, PricingItem } from '../utils/pricing';
 
 let razorpay: Razorpay;
 if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
@@ -54,7 +55,7 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
     for (const item of items) {
       const product = await prisma.product.findUnique({ 
         where: { id: item.productId },
-        include: { variants: true }
+        include: { variants: true, category: true }
       });
 
       if (!product) throw createError(404, `Product ID ${item.productId} not found`);
@@ -84,26 +85,38 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
         productId: product.id, 
         variantId: item.variantId || null,
         quantity: item.quantity, 
-        price: price 
+        price: price,
+        categorySlug: product.category.slug
       });
     }
 
-    let discountApplied = 0;
+    // --- Automatic Discounts & Shipping Logic ---
+    const [categoryOffers, comboDeals] = await Promise.all([
+      prisma.categoryOffer.findMany({ where: { isActive: true } }),
+      prisma.comboDeal.findMany({ where: { isActive: true } })
+    ]);
+
+    const pricing = calculateOrderPricing(validatedItems, categoryOffers, comboDeals);
+    
+    let discountApplied = pricing.comboDiscount;
     if (couponCode) {
       const coupon = await prisma.coupon.findUnique({ where: { code: couponCode } });
       if (!coupon || !coupon.isActive) throw createError(400, 'Invalid coupon code');
       if (coupon.expiresAt && new Date() > coupon.expiresAt) throw createError(400, 'Coupon has expired');
       if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) throw createError(400, 'Coupon usage limit reached');
 
+      let couponDiscount = 0;
       if (coupon.discountType === DiscountType.PERCENTAGE) {
-        discountApplied = (subtotal * Number(coupon.discountValue)) / 100;
+        couponDiscount = ((subtotal - pricing.comboDiscount) * Number(coupon.discountValue)) / 100;
       } else {
-        discountApplied = Number(coupon.discountValue);
+        couponDiscount = Number(coupon.discountValue);
       }
+      discountApplied += couponDiscount;
       if (discountApplied > subtotal) discountApplied = subtotal;
     }
 
-    const totalAmount = subtotal - discountApplied;
+    const shippingAmount = pricing.shippingAmount;
+    const totalAmount = subtotal - discountApplied + shippingAmount;
     const amountInPaise = Math.round(totalAmount * 100);
 
     if (amountInPaise < 100) {
@@ -127,6 +140,7 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
           phoneNumber,
           couponCode: couponCode || null,
           discountApplied,
+          shippingAmount,
           items: {
             create: validatedItems.map(item => ({
               productId: item.productId,
