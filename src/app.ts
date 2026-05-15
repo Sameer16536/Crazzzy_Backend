@@ -69,20 +69,33 @@ app.get('/api/health', (_req, res) => {
 
 import settingsRoutes from './routes/settingsRoutes';
 import cartRoutes from './routes/cartRoutes';
+import webhookRoutes from './routes/webhookRoutes';
+import rateLimit from 'express-rate-limit';
+
+// ── Rate Limiters ─────────────────────────────────────────────────────────────
+const orderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 order creations per window
+  message: { success: false, message: 'Too many orders created from this IP, please try again after 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ── API Routes (prefixed at /api) ─────────────────────────────────────────────
-app.use('/api/auth',       authRoutes);
-app.use('/api/products',   productRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/orders',     orderRoutes);
-app.use('/api/admin',      adminRoutes);
-app.use('/api/users',      userRoutes);
-app.use('/api/settings',   settingsRoutes);
-app.use('/api/cart',       cartRoutes);
-app.use('/api',            settingsRoutes);
+// Webhooks (Registered BEFORE body parser if they need raw body, but Razorpay works with JSON)
+app.use('/api/webhooks', webhookRoutes);
 
-// Razorpay specific aliases
-app.post('/api/create-order', authenticate, createOrderValidation, createOrder);
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/cart', cartRoutes);
+
+// Razorpay specific aliases (Applying rate limiter here too)
+app.post('/api/create-order', orderLimiter, authenticate, createOrderValidation, createOrder);
 app.post('/api/verify-payment', authenticate, verifyPaymentValidation, verifyPayment);
 
 // ── 404 & Centralised Error Handler ──────────────────────────────────────────

@@ -187,40 +187,19 @@ export async function verifyPayment(req: Request, res: Response, next: NextFunct
       .update(body_str)
       .digest('hex');
 
-    const signaturesMatch = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature),
-      Buffer.from(razorpay_signature)
-    );
+    // Prevent timingSafeEqual crash on length mismatch
+    const expectedBuffer = Buffer.from(expectedSignature);
+    const signatureBuffer = Buffer.from(razorpay_signature);
+    
+    if (expectedBuffer.length !== signatureBuffer.length) {
+      throw createError(400, 'Payment verification failed: Invalid signature');
+    }
+
+    const signaturesMatch = crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 
     if (!signaturesMatch) throw createError(400, 'Payment verification failed: Invalid signature');
 
-    await prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: order.id },
-        data: { status: OrderStatus.PAID, paymentId: razorpay_payment_id }
-      });
-
-      for (const item of order.items) {
-        if (item.productVariantId) {
-          // Decrement Variant Stock
-          await tx.productVariant.update({
-            where: { id: item.productVariantId },
-            data: { stock: { decrement: item.quantity } }
-          });
-        } else {
-          // Decrement Base Product Stock
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stock: { decrement: item.quantity } }
-          });
-        }
-      }
-    });
-
-    sendOrderReceiptEmail(order.user.email, order.user.name, order, order.items).catch(err => {
-      console.warn("Failed to send order email:", err);
-    });
-
+    await confirmOrderPayment(order.id, razorpay_payment_id);
     res.json({ success: true, message: 'Payment verified. Order confirmed!', orderId: order.id });
   } catch (err) { next(err); }
 }
@@ -310,4 +289,52 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
 
     res.json({ success: true, message: 'Order cancelled successfully and stock restored.' });
   } catch (err) { next(err); }
+}
+
+/**
+ * Reusable logic to confirm a payment and decrement stock safely.
+ * Used by verifyPayment (client-side) and handleRazorpayWebhook (server-side).
+ */
+export async function confirmOrderPayment(orderId: number, razorpayPaymentId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { user: true, items: { include: { product: true } } }
+  });
+
+  if (!order) throw createError(404, 'Order not found');
+  if (order.status !== OrderStatus.PENDING) return; // Already processed
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Mark Order as PAID
+    await tx.order.update({
+      where: { id: order.id },
+      data: { status: OrderStatus.PAID, paymentId: razorpayPaymentId }
+    });
+
+    // 2. Atomic Stock Decrement with check
+    for (const item of order.items) {
+      if (item.productVariantId) {
+        const update = await tx.productVariant.updateMany({
+          where: { id: item.productVariantId, stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } }
+        });
+        if (update.count === 0) {
+          throw createError(400, `Insufficient stock for product variant in order #${order.id}`);
+        }
+      } else {
+        const update = await tx.product.updateMany({
+          where: { id: item.productId, stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } }
+        });
+        if (update.count === 0) {
+          throw createError(400, `Insufficient stock for "${item.product.title}" in order #${order.id}`);
+        }
+      }
+    }
+  });
+
+  // 3. Send Receipt (Async)
+  sendOrderReceiptEmail(order.user.email, order.user.name, order, order.items).catch(err => {
+    console.warn("[Order] Failed to send receipt email:", err.message);
+  });
 }
