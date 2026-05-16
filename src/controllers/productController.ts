@@ -55,7 +55,7 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '20', 10)));
     const skip = (page - 1) * limit;
 
-    const { search, category, isFeatured, isDealOfTheDay } = req.query;
+    const { search, category, isFeatured, isDealOfTheDay, ids } = req.query;
 
     const isAdmin = req.user?.role === 'ADMIN';
 
@@ -78,6 +78,7 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
       // Only force isActive=true for normal users
       ...(isAdmin ? {} : { isActive: true }),
       AND: [
+        ids ? { id: { in: (ids as string).split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id)) } } : {},
         // Logic: Search in Title OR Description OR Category Name
         search ? {
           OR: [
