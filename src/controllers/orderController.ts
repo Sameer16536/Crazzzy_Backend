@@ -91,13 +91,14 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
     }
 
     // --- Automatic Discounts & Shipping Logic ---
-    const [categoryOffers, comboDeals, allCategories] = await Promise.all([
+    const [categoryOffers, comboDeals, allCategories, productOffers] = await Promise.all([
       prisma.categoryOffer.findMany({ where: { isActive: true } }),
       prisma.comboDeal.findMany({ where: { isActive: true } }),
-      prisma.category.findMany({ select: { id: true, slug: true, parentId: true } })
+      prisma.category.findMany({ select: { id: true, slug: true, parentId: true } }),
+      prisma.productOffer.findMany({ where: { isActive: true } })
     ]);
 
-    const pricing = calculateOrderPricing(validatedItems, categoryOffers, comboDeals, allCategories);
+    const pricing = calculateOrderPricing(validatedItems, categoryOffers, comboDeals, allCategories, productOffers);
     
     let discountApplied = pricing.comboDiscount;
     if (couponCode) {

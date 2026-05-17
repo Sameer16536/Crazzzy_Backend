@@ -150,3 +150,75 @@ export const deleteCategoryOffer = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message })
   }
 }
+
+export const getProductOffers = async (req: Request, res: Response) => {
+  try {
+    const offers = await prisma.productOffer.findMany({ 
+      orderBy: { createdAt: 'desc' },
+      include: { product: { select: { title: true, imageUrl: true } } }
+    })
+    res.json(offers)
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const createProductOffer = async (req: Request, res: Response) => {
+  try {
+    const { productId, buyQuantity, freeProductIds, isActive } = req.body
+    
+    // Check if offer already exists for this product (unique constraint)
+    const existing = await prisma.productOffer.findUnique({
+      where: { productId: Number(productId) }
+    })
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'An offer already exists for this trigger product' })
+    }
+
+    const offer = await prisma.productOffer.create({
+      data: {
+        productId: Number(productId),
+        buyQuantity: Number(buyQuantity),
+        freeProductIds: typeof freeProductIds === 'string' ? freeProductIds : JSON.stringify(freeProductIds),
+        isActive: Boolean(isActive)
+      },
+      include: { product: { select: { title: true, imageUrl: true } } }
+    })
+    res.status(201).json(offer)
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const updateProductOffer = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { productId, buyQuantity, freeProductIds, isActive } = req.body
+    
+    const updateData: any = {}
+    if (productId !== undefined) updateData.productId = Number(productId)
+    if (buyQuantity !== undefined) updateData.buyQuantity = Number(buyQuantity)
+    if (freeProductIds !== undefined) {
+      updateData.freeProductIds = typeof freeProductIds === 'string' ? freeProductIds : JSON.stringify(freeProductIds)
+    }
+    if (isActive !== undefined) updateData.isActive = Boolean(isActive)
+
+    const offer = await prisma.productOffer.update({
+      where: { id: Number(id) },
+      data: updateData,
+      include: { product: { select: { title: true, imageUrl: true } } }
+    })
+    res.json(offer)
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const deleteProductOffer = async (req: Request, res: Response) => {
+  try {
+    await prisma.productOffer.delete({ where: { id: Number(req.params.id) } })
+    res.json({ success: true })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}

@@ -1,4 +1,4 @@
-import { CategoryOffer, ComboDeal } from '@prisma/client';
+import { CategoryOffer, ComboDeal, ProductOffer } from '@prisma/client';
 
 export interface PricingItem {
   productId: number;
@@ -28,7 +28,8 @@ export function calculateOrderPricing(
   items: PricingItem[],
   offers: CategoryOffer[],
   deals: ComboDeal[],
-  categories: PricingCategory[] = []
+  categories: PricingCategory[] = [],
+  productOffers: ProductOffer[] = []
 ): PricingResult {
   let subtotal = 0;
   let comboDiscount = 0;
@@ -58,7 +59,6 @@ export function calculateOrderPricing(
   };
 
   // 2. Apply Combo Deals (Fixed Price Bundles)
-  // ... (keeping existing logic for combo deals)
   const activeDeals = deals.filter(d => d.isActive);
   const remainingItems = [...items.map(i => ({ ...i }))];
   
@@ -88,6 +88,76 @@ export function calculateOrderPricing(
         removedCount += take;
       }
       comboDiscount += (normalCost - bundlePrice);
+    }
+  }
+
+  // 2.5 Apply Product Offers (Buy X Get Y Free / Buy A Get B Free)
+  const activeProductOffers = productOffers.filter(o => o.isActive);
+  
+  for (const offer of activeProductOffers) {
+    // Check if trigger product is in the cart with quantity > 0
+    const triggerItems = remainingItems.filter(item => item.productId === offer.productId && item.quantity > 0);
+    const triggerQty = triggerItems.reduce((sum, item) => sum + item.quantity, 0);
+    
+    if (triggerQty <= 0) continue;
+    
+    let freeProductIds: number[] = [];
+    try {
+      freeProductIds = JSON.parse(offer.freeProductIds) as number[];
+    } catch (e) {
+      console.error('Failed to parse freeProductIds for offer:', offer.id, e);
+      continue;
+    }
+    
+    const isSameProductOffer = freeProductIds.includes(offer.productId);
+    
+    if (isSameProductOffer) {
+      // BOGO cycle: buyQuantity + 1 (e.g. buy 1 get 1 free means cycle = 2)
+      const cycle = offer.buyQuantity + 1;
+      const freeUnits = Math.floor(triggerQty / cycle);
+      
+      if (freeUnits > 0) {
+        let remainingFree = freeUnits;
+        const sortedTriggerItems = [...triggerItems].sort((a, b) => a.price - b.price);
+        
+        for (const item of sortedTriggerItems) {
+          if (remainingFree <= 0) break;
+          const match = remainingItems.find(ri => ri.productId === item.productId && ri.variantId === item.variantId);
+          if (match && match.quantity > 0) {
+            const take = Math.min(match.quantity, remainingFree);
+            comboDiscount += take * match.price;
+            match.quantity -= take;
+            remainingFree -= take;
+          }
+        }
+      }
+    } else {
+      // Cross-product offer: Buy X triggers, get Y free products free
+      const triggerCycles = Math.floor(triggerQty / offer.buyQuantity);
+      if (triggerCycles <= 0) continue;
+      
+      for (const freeProductId of freeProductIds) {
+        const freeItems = remainingItems.filter(item => item.productId === freeProductId && item.quantity > 0);
+        const freeQty = freeItems.reduce((sum, item) => sum + item.quantity, 0);
+        
+        if (freeQty <= 0) continue;
+        
+        // Eligible free units is triggerCycles (e.g. buy 1, get 1 free; so triggerCycles free units)
+        const eligibleFreeUnits = triggerCycles;
+        let remainingFree = Math.min(freeQty, eligibleFreeUnits);
+        
+        const sortedFreeItems = [...freeItems].sort((a, b) => a.price - b.price);
+        for (const item of sortedFreeItems) {
+          if (remainingFree <= 0) break;
+          const match = remainingItems.find(ri => ri.productId === item.productId && ri.variantId === item.variantId);
+          if (match && match.quantity > 0) {
+            const take = Math.min(match.quantity, remainingFree);
+            comboDiscount += take * match.price;
+            match.quantity -= take;
+            remainingFree -= take;
+          }
+        }
+      }
     }
   }
 

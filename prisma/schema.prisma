@@ -142,6 +142,7 @@ model Product {
   reviews      Review[]
   wishlistedBy User[]           @relation("UserWishlist")
   cartItems    CartItem[]
+  productOffer ProductOffer?
 
   @@map("products")
 }
@@ -286,6 +287,20 @@ model CategoryOffer {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("category_offers")
+}
+
+model ProductOffer {
+  id              Int      @id @default(autoincrement())
+  productId       Int      @unique @map("product_id")
+  buyQuantity     Int      @default(1) @map("buy_quantity")
+  freeProductIds  String   @map("free_product_ids") @db.Text
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_offers")
 }
 
 model Cart {
