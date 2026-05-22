@@ -62,6 +62,16 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 // ── Static Files (Uploaded Images) ───────────────────────────────────────────
 app.use('/public', express.static(path.join(process.cwd(), 'public')));
 
+// ── No-Cache for all API responses ────────────────────────────────────────────
+// Prevents CDNs (Vercel Edge, Cloudflare) and browsers from serving stale
+// product/order/image data after mutations (delete, update, etc.)
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // ── Health Check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV });

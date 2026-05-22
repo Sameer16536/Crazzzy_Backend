@@ -10,7 +10,7 @@
 - **Product Page Badges:** Dynamically rendered live promotion tags (e.g. `🎁 BUY 1 GET 1 FREE`) under titles in `app/product/[id]/page.tsx`.
 - **Cart Page suggestions:** Added visual tags on discounted items and thumbnail-based upsell suggestions (with "Add Freebie" CTA) in `app/cart/page.tsx`.
 - **Checkout Total Consistency:** Updated `app/checkout/page.tsx` summary panel to run the promotions solver and display exact visual promo discounts, guaranteeing consistency with Razorpay charges.
-- **Admin Console:** Created a comprehensive `Product Offers` console at `app/admin/product-offers/page.tsx` for creating, toggling, and deleting offers using a searchable product checklist, and added sidebar navigation.
+- **Admin Console Overhaul:** Overhauled the `Product Offers` console at `app/admin/product-offers/page.tsx` with searchable selectors (mini square thumbnails, category filters, radio/checkbox controllers matching the Combo Deals panel). Simplified technical descriptions to plain-English, step-by-step instructions. Rendered rich visual flow timeline cards showing trigger/gift thumbnails and indicator arrows. Added full **Edit Option** support (with parsed parameters and smooth window scrolling to form) and comprehensive, descriptive **Toast Messages** (`toast.success` and `toast.error` via `sonner`) for every action (load, create, update, toggle, delete).
 
 ## [2026-05-05] - Admin Login and Production Email Fixes
 

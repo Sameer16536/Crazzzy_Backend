@@ -346,6 +346,50 @@ export async function bulkProductUpdate(req: Request, res: Response, next: NextF
   } catch (err) { next(err); }
 }
 
+// Admin: Delete a single image from a product (removes from DB + Cloudinary)
+export async function deleteProductImage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const productId = parseInt(req.params.productId as string, 10);
+    const imageId = parseInt(req.params.imageId as string, 10);
+
+    if (isNaN(productId) || isNaN(imageId)) throw createError(400, 'Invalid product or image ID');
+
+    // Find the image and make sure it belongs to this product
+    const image = await prisma.productImage.findFirst({
+      where: { id: imageId, productId }
+    });
+    if (!image) throw createError(404, 'Image not found on this product');
+
+    // Delete from Cloudinary first (best-effort)
+    if (image.publicId) {
+      await removeFile(image.publicId).catch(() => {});
+    } else if (image.imageUrl) {
+      await removeFile(image.imageUrl).catch(() => {});
+    }
+
+    // Remove from DB
+    await prisma.productImage.delete({ where: { id: imageId } });
+
+    // If this was also the product's main imageUrl, update it to the next available image
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: { images: true }
+    });
+    if (product && product.publicId === image.publicId) {
+      const nextImage = product.images[0];
+      await prisma.product.update({
+        where: { id: productId },
+        data: {
+          imageUrl: nextImage?.imageUrl ?? null,
+          publicId: nextImage?.publicId ?? null
+        }
+      });
+    }
+
+    res.json({ success: true, message: 'Image deleted successfully' });
+  } catch (err) { next(err); }
+}
+
 export async function deleteProduct(req: Request, res: Response, next: NextFunction) {
   try {
     const productId = parseInt(req.params.id as string, 10);

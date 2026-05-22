@@ -5,7 +5,7 @@ import { processAndUploadImage } from '../middlewares/sharpMiddleware';
 
 import {
   createProduct, updateProduct, deleteProduct, bulkProductUpdate, getProductById,
-  productCreateValidation, productUpdateValidation,
+  productCreateValidation, productUpdateValidation, deleteProductImage,
 } from '../controllers/productController';
 
 import {
@@ -43,6 +43,7 @@ router.patch('/products/bulk-update', bulkProductUpdate);
 router.get('/products/:id', getProductById);
 router.put('/products/:id', upload.array('images', 5), processAndUploadImage, productUpdateValidation, updateProduct);
 router.delete('/products/:id', deleteProduct);
+router.delete('/products/:productId/images/:imageId', deleteProductImage);
 
 // Categories
 router.post('/categories', upload.single('image'), processAndUploadImage, categoryValidation, createCategory);
