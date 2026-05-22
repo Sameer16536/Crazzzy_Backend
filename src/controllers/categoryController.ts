@@ -4,6 +4,7 @@ import { body, validationResult } from 'express-validator';
 import { prisma } from '../config/db';
 import { createError } from '../middlewares/errorMiddleware';
 import { removeFile } from '../utils/fileRemover';
+import { appCache, CACHE_TAGS } from '../utils/cache';
 
 export const categoryValidation = [
   body('name').trim().notEmpty().withMessage('Category name is required').isLength({ max: 100 }),
@@ -18,6 +19,10 @@ function validate(req: Request) {
 
 export async function listCategories(req: Request, res: Response, next: NextFunction) {
   try {
+    const cacheKey = 'categories:list';
+    const cached = appCache.get(cacheKey);
+    if (cached) return res.json(cached);
+
     const categories = await prisma.category.findMany({
       include: { _count: { select: { products: true } } },
       orderBy: { name: 'asc' }
@@ -32,7 +37,9 @@ export async function listCategories(req: Request, res: Response, next: NextFunc
       product_count: c._count.products
     }));
 
-    res.json({ success: true, data: formatted });
+    const response = { success: true, data: formatted };
+    appCache.set(cacheKey, response, [CACHE_TAGS.CATEGORIES]);
+    res.json(response);
   } catch (err) { next(err); }
 }
 
@@ -51,6 +58,7 @@ export async function createCategory(req: Request, res: Response, next: NextFunc
     const category = await prisma.category.create({
       data: { name, slug, imageUrl, publicId }
     });
+    appCache.invalidateTag(CACHE_TAGS.CATEGORIES);
     res.status(201).json({ success: true, message: 'Category created', id: category.id, slug, imageUrl });
   } catch (err) { next(err); }
 }
@@ -87,6 +95,9 @@ export async function updateCategory(req: Request, res: Response, next: NextFunc
       where: { id: categoryId },
       data: { name, slug, imageUrl, publicId }
     });
+    // Products embed category data, so invalidate both tags
+    appCache.invalidateTag(CACHE_TAGS.CATEGORIES);
+    appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
     res.json({ success: true, message: 'Category updated', imageUrl });
   } catch (err) { next(err); }
 }
@@ -110,6 +121,8 @@ export async function deleteCategory(req: Request, res: Response, next: NextFunc
     }
 
     await prisma.category.delete({ where: { id: categoryId } });
+    appCache.invalidateTag(CACHE_TAGS.CATEGORIES);
+    appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
     res.json({ success: true, message: 'Category deleted' });
   } catch (err) { next(err); }
 }

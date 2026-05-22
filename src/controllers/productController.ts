@@ -5,6 +5,7 @@ import { prisma } from '../config/db';
 import { createError } from '../middlewares/errorMiddleware';
 import { removeFile } from '../utils/fileRemover';
 import { Prisma } from '@prisma/client';
+import { appCache, CACHE_TAGS } from '../utils/cache';
 
 export const productCreateValidation = [
   body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 255 }),
@@ -51,16 +52,26 @@ const parseTags = (tagString: string) => {
 // Public API
 export async function listProducts(req: Request, res: Response, next: NextFunction) {
   try {
+    const isAdmin = req.user?.role === 'ADMIN';
+
+    // Build a stable cache key from the full query string.
+    // Admin requests are never cached (they see inactive products too).
+    const cacheKey = isAdmin
+      ? null
+      : `products:list:${new URLSearchParams(req.query as Record<string, string>).toString()}`;
+
+    if (cacheKey) {
+      const cached = appCache.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+
     const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '20', 10)));
     const skip = (page - 1) * limit;
 
     const { search, category, isFeatured, isDealOfTheDay, ids } = req.query;
 
-    const isAdmin = req.user?.role === 'ADMIN';
-
     // Auto-expire deals whose dealEndTime has passed
-    // This approach is server-authoritative: the DB is the single source of truth
     const now = new Date();
     const isDealFilter = isDealOfTheDay
       ? (isAdmin
@@ -75,11 +86,9 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
       : {};
 
     const where: Prisma.ProductWhereInput = {
-      // Only force isActive=true for normal users
       ...(isAdmin ? {} : { isActive: true }),
       AND: [
         ids ? { id: { in: (ids as string).split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id)) } } : {},
-        // Logic: Search in Title OR Description OR Category Name
         search ? {
           OR: [
             { title: { contains: search as string, mode: 'insensitive' } },
@@ -90,8 +99,6 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
             ...(!isNaN(parseInt(search as string, 10)) ? [{ id: parseInt(search as string, 10) }] : [])
           ]
         } : {},
-
-        // Logic: Filter by Category or Sub-category
         category ? {
           category: {
             OR: [
@@ -100,8 +107,6 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
             ]
           }
         } : {},
-
-        // Keep additional flags
         isFeatured ? { isFeatured: true } : {},
         isDealOfTheDay ? isDealFilter : {},
       ]
@@ -120,11 +125,16 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
       prisma.product.count({ where })
     ]);
 
-    res.json({
+    const response = {
       success: true,
       data: products,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    });
+    };
+
+    // Store in cache (public requests only)
+    if (cacheKey) appCache.set(cacheKey, response, [CACHE_TAGS.PRODUCTS]);
+
+    res.json(response);
   } catch (err) { next(err); }
 }
 
@@ -132,6 +142,14 @@ export async function getProductBySlug(req: Request, res: Response, next: NextFu
   try {
     const slugOrId = req.params.slug as string;
     const isId = !isNaN(parseInt(slugOrId, 10)) && /^\d+$/.test(slugOrId);
+    const isAdmin = req.user?.role === 'ADMIN';
+
+    // Cache public product detail pages only
+    const cacheKey = isAdmin ? null : `products:slug:${slugOrId}`;
+    if (cacheKey) {
+      const cached = appCache.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
 
     const product = await prisma.product.findUnique({
       where: isId ? { id: parseInt(slugOrId, 10) } : { slug: slugOrId },
@@ -144,10 +162,14 @@ export async function getProductBySlug(req: Request, res: Response, next: NextFu
       }
     });
 
-    if (!product || (!product.isActive && req.user?.role !== 'ADMIN')) {
+    if (!product || (!product.isActive && !isAdmin)) {
       throw createError(404, 'Product not found');
     }
-    res.json({ success: true, data: product });
+
+    const response = { success: true, data: product };
+    if (cacheKey) appCache.set(cacheKey, response, [CACHE_TAGS.PRODUCTS]);
+
+    res.json(response);
   } catch (err) { next(err); }
 }
 
@@ -218,6 +240,9 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
         }
       }
     });
+
+    // Invalidate cache so next request reflects the new product
+    appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
 
     res.status(201).json({ success: true, message: 'Product created', product });
   } catch (err) { next(err); }
@@ -314,6 +339,9 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
       }
     });
 
+    // Invalidate cache so updated product is served fresh
+    appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
+
     res.json({ success: true, message: 'Product updated', product });
   } catch (err) { next(err); }
 }
@@ -342,6 +370,7 @@ export async function bulkProductUpdate(req: Request, res: Response, next: NextF
       });
     }));
 
+    appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
     res.json({ success: true, message: `${results.length} products updated`, results });
   } catch (err) { next(err); }
 }
@@ -386,6 +415,7 @@ export async function deleteProductImage(req: Request, res: Response, next: Next
       });
     }
 
+    appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
     res.json({ success: true, message: 'Image deleted successfully' });
   } catch (err) { next(err); }
 }
@@ -425,6 +455,10 @@ export async function deleteProduct(req: Request, res: Response, next: NextFunct
 
     // 2b. Hard Delete: No orders exist, safe to remove entirely
     await prisma.product.delete({ where: { id: productId } });
+
+    // Invalidate cache — deleted product must disappear immediately
+    appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
+
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (err) { next(err); }
 }
