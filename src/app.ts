@@ -62,13 +62,19 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 // ── Static Files (Uploaded Images) ───────────────────────────────────────────
 app.use('/public', express.static(path.join(process.cwd(), 'public')));
 
-// ── No-Cache for all API responses ────────────────────────────────────────────
-// Prevents CDNs (Vercel Edge, Cloudflare) and browsers from serving stale
-// product/order/image data after mutations (delete, update, etc.)
-app.use('/api', (_req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+// ── Smart Cache Headers ───────────────────────────────────────────────────────
+// GET  → short public cache (30s) so pages load fast from CDN/browser cache.
+// Mutations (POST/PUT/PATCH/DELETE) → no-store so changes go live immediately.
+// This is the correct pattern: cache reads, bust on writes.
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET') {
+    // 30s CDN cache, serve stale while revalidating for up to 60s more.
+    // After any mutation the next GET re-fetches from origin within 30s.
+    res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+  } else {
+    // Never cache mutation responses
+    res.setHeader('Cache-Control', 'no-store');
+  }
   next();
 });
 
