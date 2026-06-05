@@ -70,7 +70,7 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
         if (!variant) throw createError(400, `Invalid variant for product "${product.title}"`);
         
         // Use variant-specific price if it exists, otherwise use base price
-        if (variant.additionalPrice && Number(variant.additionalPrice) > 0) {
+        if (variant.additionalPrice && Number(variant.additionalPrice) !== 0) {
           price += Number(variant.additionalPrice);
         }
         stockToCheck = variant.stock;
@@ -233,8 +233,13 @@ export async function getUserOrders(req: Request, res: Response, next: NextFunct
 
 export async function getOrderById(req: Request, res: Response, next: NextFunction) {
   try {
+    const orderId = parseInt(req.params.id as string, 10);
+    const isAdmin = req.user!.role === 'ADMIN';
+
     const order = await prisma.order.findFirst({
-      where: { id: parseInt(req.params.id as string, 10), userId: req.user!.id },
+      where: isAdmin
+        ? { id: orderId }
+        : { id: orderId, userId: req.user!.id },
       include: { items: { include: { product: { select: { title: true, imageUrl: true } } } } }
     });
     if (!order) throw createError(404, 'Order not found');
@@ -246,9 +251,10 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
   try {
     const orderId = parseInt(req.params.id as string, 10);
     const userId = req.user!.id;
+    const isAdmin = req.user!.role === 'ADMIN';
 
     const order = await prisma.order.findFirst({
-      where: { id: orderId, userId },
+      where: isAdmin ? { id: orderId } : { id: orderId, userId },
       include: { items: true }
     });
 
