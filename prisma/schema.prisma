@@ -329,3 +329,20 @@ model CartItem {
   @@unique([cartId, productId, productVariantId])
   @@map("cart_items")
 }
+
+model SpotlightSection {
+  id              Int       @id @default(autoincrement())
+  title           String    @db.VarChar(255)
+  subtitle        String?   @db.VarChar(500)
+  bannerUrl       String    @map("banner_url") @db.VarChar(500)
+  bannerPublicId  String?   @map("banner_public_id") @db.VarChar(255)
+  ctaText         String?   @map("cta_text") @db.VarChar(100)
+  ctaUrl          String?   @map("cta_url") @db.VarChar(500)
+  productIds      String    @map("product_ids") @db.Text // JSON array of IDs
+  isActive        Boolean   @default(true) @map("is_active")
+  endsAt          DateTime? @map("ends_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("spotlight_sections")
+}

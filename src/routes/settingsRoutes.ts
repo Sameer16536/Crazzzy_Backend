@@ -3,7 +3,8 @@ import {
   getComboDeals, createComboDeal, updateComboDeal, deleteComboDeal,
   getCategoryFilters, setCategoryFilters,
   getCategoryOffers, createCategoryOffer, updateCategoryOffer, deleteCategoryOffer,
-  getProductOffers, createProductOffer, updateProductOffer, deleteProductOffer
+  getProductOffers, createProductOffer, updateProductOffer, deleteProductOffer,
+  getSpotlightSections, createSpotlightSection, updateSpotlightSection, deleteSpotlightSection,
 } from '../controllers/adminSettingsController'
 import { authenticate, requireAdmin } from '../middlewares/authMiddleware'
 
@@ -14,6 +15,7 @@ router.get('/combo-deals', getComboDeals)
 router.get('/category-filters', getCategoryFilters)
 router.get('/category-offers', getCategoryOffers)
 router.get('/product-offers', getProductOffers)
+router.get('/spotlight', getSpotlightSections)
 
 // Admin only routes
 router.use(authenticate, requireAdmin)
@@ -31,5 +33,9 @@ router.delete('/category-offers/:id', deleteCategoryOffer)
 router.post('/product-offers', createProductOffer)
 router.put('/product-offers/:id', updateProductOffer)
 router.delete('/product-offers/:id', deleteProductOffer)
+
+router.post('/spotlight', createSpotlightSection)
+router.put('/spotlight/:id', updateSpotlightSection)
+router.delete('/spotlight/:id', deleteSpotlightSection)
 
 export default router

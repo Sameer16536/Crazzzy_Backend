@@ -222,3 +222,85 @@ export const deleteProductOffer = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message })
   }
 }
+
+// ─── Spotlight Section ────────────────────────────────────────────────────────
+
+function parseSpotlight(s: any) {
+  return {
+    ...s,
+    productIds: (() => {
+      try { return JSON.parse(s.productIds) } catch { return [] }
+    })(),
+  }
+}
+
+export const getSpotlightSections = async (req: Request, res: Response) => {
+  try {
+    const showAll = req.query.all === 'true'
+    const sections = await prisma.spotlightSection.findMany({
+      where: showAll ? undefined : { isActive: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    res.json(sections.map(parseSpotlight))
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const createSpotlightSection = async (req: Request, res: Response) => {
+  try {
+    const { title, subtitle, bannerUrl, bannerPublicId, ctaText, ctaUrl, productIds, isActive, endsAt } = req.body
+    const section = await prisma.spotlightSection.create({
+      data: {
+        title,
+        subtitle: subtitle || null,
+        bannerUrl,
+        bannerPublicId: bannerPublicId || null,
+        ctaText: ctaText || null,
+        ctaUrl: ctaUrl || null,
+        productIds: typeof productIds === 'string' ? productIds : JSON.stringify(productIds || []),
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+        endsAt: endsAt ? new Date(endsAt) : null,
+      },
+    })
+    res.status(201).json(parseSpotlight(section))
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const updateSpotlightSection = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const { title, subtitle, bannerUrl, bannerPublicId, ctaText, ctaUrl, productIds, isActive, endsAt } = req.body
+
+    const data: any = {}
+    if (title !== undefined) data.title = title
+    if (subtitle !== undefined) data.subtitle = subtitle
+    if (bannerUrl !== undefined) data.bannerUrl = bannerUrl
+    if (bannerPublicId !== undefined) data.bannerPublicId = bannerPublicId
+    if (ctaText !== undefined) data.ctaText = ctaText
+    if (ctaUrl !== undefined) data.ctaUrl = ctaUrl
+    if (productIds !== undefined) data.productIds = typeof productIds === 'string' ? productIds : JSON.stringify(productIds)
+    if (isActive !== undefined) data.isActive = Boolean(isActive)
+    if (endsAt !== undefined) data.endsAt = endsAt ? new Date(endsAt) : null
+
+    const section = await prisma.spotlightSection.update({
+      where: { id: Number(id) },
+      data,
+    })
+    res.json(parseSpotlight(section))
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
+export const deleteSpotlightSection = async (req: Request, res: Response) => {
+  try {
+    await prisma.spotlightSection.delete({ where: { id: Number(req.params.id) } })
+    res.json({ success: true })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+}
+
