@@ -231,6 +231,7 @@ function parseSpotlight(s: any) {
     productIds: (() => {
       try { return JSON.parse(s.productIds) } catch { return [] }
     })(),
+    bundlePrice: s.bundlePrice != null ? Number(s.bundlePrice) : null,
   }
 }
 
@@ -249,7 +250,7 @@ export const getSpotlightSections = async (req: Request, res: Response) => {
 
 export const createSpotlightSection = async (req: Request, res: Response) => {
   try {
-    const { title, subtitle, bannerUrl, bannerPublicId, ctaText, ctaUrl, productIds, isActive, endsAt } = req.body
+    const { title, subtitle, bannerUrl, bannerPublicId, ctaText, ctaUrl, productIds, bundlePrice, isActive, endsAt } = req.body
     const section = await prisma.spotlightSection.create({
       data: {
         title,
@@ -259,6 +260,7 @@ export const createSpotlightSection = async (req: Request, res: Response) => {
         ctaText: ctaText || null,
         ctaUrl: ctaUrl || null,
         productIds: typeof productIds === 'string' ? productIds : JSON.stringify(productIds || []),
+        bundlePrice: bundlePrice ? Number(bundlePrice) : null,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
         endsAt: endsAt ? new Date(endsAt) : null,
       },
@@ -272,7 +274,7 @@ export const createSpotlightSection = async (req: Request, res: Response) => {
 export const updateSpotlightSection = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { title, subtitle, bannerUrl, bannerPublicId, ctaText, ctaUrl, productIds, isActive, endsAt } = req.body
+    const { title, subtitle, bannerUrl, bannerPublicId, ctaText, ctaUrl, productIds, bundlePrice, isActive, endsAt } = req.body
 
     const data: any = {}
     if (title !== undefined) data.title = title
@@ -282,6 +284,7 @@ export const updateSpotlightSection = async (req: Request, res: Response) => {
     if (ctaText !== undefined) data.ctaText = ctaText
     if (ctaUrl !== undefined) data.ctaUrl = ctaUrl
     if (productIds !== undefined) data.productIds = typeof productIds === 'string' ? productIds : JSON.stringify(productIds)
+    if (bundlePrice !== undefined) data.bundlePrice = bundlePrice ? Number(bundlePrice) : null
     if (isActive !== undefined) data.isActive = Boolean(isActive)
     if (endsAt !== undefined) data.endsAt = endsAt ? new Date(endsAt) : null
 

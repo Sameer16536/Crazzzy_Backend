@@ -339,6 +339,7 @@ model SpotlightSection {
   ctaText         String?   @map("cta_text") @db.VarChar(100)
   ctaUrl          String?   @map("cta_url") @db.VarChar(500)
   productIds      String    @map("product_ids") @db.Text // JSON array of IDs
+  bundlePrice     Decimal?  @map("bundle_price") @db.Decimal(10, 2)
   isActive        Boolean   @default(true) @map("is_active")
   endsAt          DateTime? @map("ends_at")
   createdAt       DateTime  @default(now()) @map("created_at")
