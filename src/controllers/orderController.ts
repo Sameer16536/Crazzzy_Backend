@@ -266,6 +266,7 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
     }
 
     // HANDLE RAZORPAY REFUND IF PAID
+    let refundInitiated = false;
     if (order.status === OrderStatus.PAID && order.paymentId) {
       if (!razorpay) throw createError(500, 'Razorpay not configured for refund');
       
@@ -273,27 +274,34 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
         console.log(`[Refund] Initiating for Payment ID: ${order.paymentId}, Amount: ${order.totalAmount}`);
         await razorpay.payments.refund(order.paymentId, {
           amount: Math.round(Number(order.totalAmount) * 100),
-          notes: { reason: 'User cancelled order' }
+          notes: { reason: isAdmin ? 'Admin cancelled order' : 'Customer cancelled order' }
         });
+        refundInitiated = true;
       } catch (refundErr: any) {
         console.error('Razorpay Refund Error:', JSON.stringify(refundErr, null, 2));
         
         // If in development/test, allow cancellation to proceed even if refund fails (for fake IDs)
         if (process.env.NODE_ENV !== 'production') {
-           console.warn("Dev/Test Mode: Refund failed (likely due to fake Payment ID), proceeding with cancellation anyway.");
+           console.warn("Dev/Test Mode: Refund failed (likely fake Payment ID), proceeding with cancellation anyway.");
+           refundInitiated = true; // Treat as initiated in dev so the timestamp is still set
         } else {
            throw createError(500, refundErr.description || 'Refund failed via Razorpay. Please contact support.');
         }
       }
     }
 
-    // RESTORE STOCK & UPDATE STATUS
+    // CANCEL ORDER, RESTORE STOCK, FREE COUPON SLOT
     await prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: order.id },
-        data: { status: OrderStatus.CANCELLED }
+        data: {
+          status: OrderStatus.CANCELLED,
+          // Stamp refundedAt so users & admins can audit when the refund was triggered
+          ...(refundInitiated ? { refundedAt: new Date() } : {}),
+        }
       });
 
+      // Restore product/variant stock
       for (const item of order.items) {
         if (item.productVariantId) {
           await tx.productVariant.update({
@@ -307,9 +315,22 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
           });
         }
       }
+
+      // Free the coupon slot — usedCount was incremented in confirmOrderPayment on payment;
+      // cancellation should undo that so the coupon can be used again.
+      if (order.couponCode && order.status === OrderStatus.PAID) {
+        await tx.coupon.update({
+          where: { code: order.couponCode },
+          data: { usedCount: { decrement: 1 } }
+        });
+      }
     });
 
-    res.json({ success: true, message: 'Order cancelled successfully and stock restored.' });
+    const message = refundInitiated
+      ? `Order cancelled. A full refund of ₹${Number(order.totalAmount).toFixed(2)} has been initiated — expect it within 5–7 business days.`
+      : 'Order cancelled. You were not charged as payment was never completed.';
+
+    res.json({ success: true, message, refundInitiated });
   } catch (err) { next(err); }
 }
 

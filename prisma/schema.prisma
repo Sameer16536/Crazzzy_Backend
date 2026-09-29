@@ -103,6 +103,7 @@ model Category {
   slug     String     @unique @db.VarChar(255)
   imageUrl String?    @map("image_url") @db.VarChar(255)
   publicId String?    @map("public_id") @db.VarChar(255)
+  isActive Boolean    @default(true) @map("is_active")
   products Product[]
   parentId Int?       @map("parent_id")
   parent   Category?  @relation("CategoryToSub", fields: [parentId], references: [id])
@@ -204,6 +205,7 @@ model Order {
   courierName       String?   @map("courier_name") @db.VarChar(100)
   estimatedDelivery DateTime? @map("estimated_delivery")
   deliveredAt       DateTime? @map("delivered_at")
+  refundedAt        DateTime? @map("refunded_at")  // Set when Razorpay refund is initiated
 
   createdAt DateTime @default(now()) @map("created_at")
 

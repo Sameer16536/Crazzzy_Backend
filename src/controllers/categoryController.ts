@@ -19,21 +19,24 @@ function validate(req: Request) {
 
 export async function listCategories(req: Request, res: Response, next: NextFunction) {
   try {
-    const cacheKey = 'categories:list';
+    const isAdmin = req.user?.role === 'ADMIN';
+    const cacheKey = isAdmin ? 'categories:list:admin' : 'categories:list';
     const cached = appCache.get(cacheKey);
     if (cached) return res.json(cached);
 
     const categories = await prisma.category.findMany({
+      where: isAdmin ? {} : { isActive: true },
       include: { _count: { select: { products: true } } },
       orderBy: { name: 'asc' }
     });
 
     const formatted = categories.map(c => ({
-      id: c.id, 
-      name: c.name, 
+      id: c.id,
+      name: c.name,
       slug: c.slug,
       imageUrl: c.imageUrl,
       parentId: c.parentId,
+      isActive: c.isActive,
       product_count: c._count.products
     }));
 
@@ -83,7 +86,6 @@ export async function updateCategory(req: Request, res: Response, next: NextFunc
     let publicId = existing.publicId;
 
     if (req.file) {
-      // Remove old file from Cloudinary if it exists
       if (existing.publicId) {
         await removeFile(existing.publicId).catch(() => {});
       }
@@ -95,10 +97,32 @@ export async function updateCategory(req: Request, res: Response, next: NextFunc
       where: { id: categoryId },
       data: { name, slug, imageUrl, publicId }
     });
-    // Products embed category data, so invalidate both tags
     appCache.invalidateTag(CACHE_TAGS.CATEGORIES);
     appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
     res.json({ success: true, message: 'Category updated', imageUrl });
+  } catch (err) { next(err); }
+}
+
+export async function toggleCategoryActive(req: Request, res: Response, next: NextFunction) {
+  try {
+    const categoryId = parseInt(req.params.id as string, 10);
+
+    const existing = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!existing) throw createError(404, 'Category not found');
+
+    const updated = await prisma.category.update({
+      where: { id: categoryId },
+      data: { isActive: !existing.isActive }
+    });
+
+    appCache.invalidateTag(CACHE_TAGS.CATEGORIES);
+    appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
+
+    res.json({
+      success: true,
+      message: `Category "${updated.name}" is now ${updated.isActive ? 'active' : 'inactive'}`,
+      isActive: updated.isActive
+    });
   } catch (err) { next(err); }
 }
 

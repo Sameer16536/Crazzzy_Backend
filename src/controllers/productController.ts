@@ -86,7 +86,7 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
       : {};
 
     const where: Prisma.ProductWhereInput = {
-      ...(isAdmin ? {} : { isActive: true }),
+      ...(isAdmin ? {} : { isActive: true, category: { isActive: true } }),
       AND: [
         ids ? { id: { in: (ids as string).split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id)) } } : {},
         search ? {
