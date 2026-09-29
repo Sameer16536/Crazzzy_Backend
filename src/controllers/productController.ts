@@ -86,7 +86,16 @@ export async function listProducts(req: Request, res: Response, next: NextFuncti
       : {};
 
     const where: Prisma.ProductWhereInput = {
-      ...(isAdmin ? {} : { isActive: true, category: { isActive: true } }),
+      ...(isAdmin ? {} : { 
+        isActive: true, 
+        category: { 
+          isActive: true,
+          OR: [
+            { parentId: null },
+            { parent: { isActive: true } }
+          ]
+        } 
+      }),
       AND: [
         ids ? { id: { in: (ids as string).split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id)) } } : {},
         search ? {
@@ -154,7 +163,7 @@ export async function getProductBySlug(req: Request, res: Response, next: NextFu
     const product = await prisma.product.findUnique({
       where: isId ? { id: parseInt(slugOrId, 10) } : { slug: slugOrId },
       include: { 
-        category: true, 
+        category: { include: { parent: true } }, 
         images: true, 
         variants: true, 
         tags: true,
@@ -162,7 +171,8 @@ export async function getProductBySlug(req: Request, res: Response, next: NextFu
       }
     });
 
-    if (!product || (!product.isActive && !isAdmin)) {
+    const isCatActive = product?.category?.isActive && (!product.category.parent || product.category.parent.isActive);
+    if (!product || ((!product.isActive || !isCatActive) && !isAdmin)) {
       throw createError(404, 'Product not found');
     }
 

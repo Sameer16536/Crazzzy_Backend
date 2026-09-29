@@ -9,7 +9,7 @@ import {
 } from '../controllers/productController';
 
 import {
-  createCategory, updateCategory, deleteCategory, toggleCategoryActive,
+  listCategories, createCategory, updateCategory, deleteCategory, toggleCategoryActive,
   categoryValidation,
 } from '../controllers/categoryController';
 
@@ -46,7 +46,7 @@ router.delete('/products/:id', deleteProduct);
 router.delete('/products/:productId/images/:imageId', deleteProductImage);
 
 // Categories
-router.get('/categories', (req, res, next) => { (req as any).user = { ...((req as any).user || {}), role: 'ADMIN' }; next(); }, require('../controllers/categoryController').listCategories);
+router.get('/categories', listCategories);
 router.post('/categories', upload.single('image'), processAndUploadImage, categoryValidation, createCategory);
 router.put('/categories/:id', upload.single('image'), processAndUploadImage, categoryValidation, updateCategory);
 router.patch('/categories/:id/toggle', toggleCategoryActive);

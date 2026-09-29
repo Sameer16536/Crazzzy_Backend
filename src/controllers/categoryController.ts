@@ -115,6 +115,14 @@ export async function toggleCategoryActive(req: Request, res: Response, next: Ne
       data: { isActive: !existing.isActive }
     });
 
+    // Cascade toggle to child categories if this is a parent category
+    if (!existing.parentId) {
+      await prisma.category.updateMany({
+        where: { parentId: categoryId },
+        data: { isActive: updated.isActive }
+      });
+    }
+
     appCache.invalidateTag(CACHE_TAGS.CATEGORIES);
     appCache.invalidateTag(CACHE_TAGS.PRODUCTS);
 

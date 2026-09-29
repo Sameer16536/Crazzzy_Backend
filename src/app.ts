@@ -23,6 +23,7 @@ import categoryRoutes from './routes/categoryRoutes';
 import orderRoutes from './routes/orderRoutes';
 import adminRoutes from './routes/adminRoutes';
 import userRoutes from './routes/userRoutes';
+import webhookRoutes from './routes/webhookRoutes';
 import { createOrder, verifyPayment, createOrderValidation, verifyPaymentValidation } from './controllers/orderController';
 import { authenticate } from './middlewares/authMiddleware';
 
@@ -55,6 +56,12 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// ── Webhook Route (MUST be before express.json body parser) ───────────────────
+// Razorpay signs the raw request body. If express.json() runs first, the body
+// is already parsed to an object, and re-stringifying it won't match the
+// original bytes. We use express.raw() here to preserve the exact raw buffer.
+app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
+
 // ── Body Parsers ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
@@ -85,14 +92,8 @@ app.get('/api/health', (_req, res) => {
 
 import settingsRoutes from './routes/settingsRoutes';
 import cartRoutes from './routes/cartRoutes';
-import webhookRoutes from './routes/webhookRoutes';
 import rateLimit from 'express-rate-limit';
 
-// ── Webhook Route (MUST be before express.json body parser) ───────────────────
-// Razorpay signs the raw request body. If express.json() runs first, the body
-// is already parsed to an object, and re-stringifying it won't match the
-// original bytes. We use express.raw() here to preserve the exact raw buffer.
-app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
 
 // ── Rate Limiters ─────────────────────────────────────────────────────────────
 const orderLimiter = rateLimit({

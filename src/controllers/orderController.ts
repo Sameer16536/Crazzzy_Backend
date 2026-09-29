@@ -58,11 +58,12 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
     for (const item of items) {
       const product = await prisma.product.findUnique({ 
         where: { id: item.productId },
-        include: { variants: true, category: true }
+        include: { variants: true, category: { include: { parent: true } } }
       });
 
       if (!product) throw createError(404, `Product ID ${item.productId} not found`);
-      if (!product.isActive) throw createError(400, `Product "${product.title}" is unavailable`);
+      const isCatActive = product.category?.isActive && (!product.category.parent || product.category.parent.isActive);
+      if (!product.isActive || !isCatActive) throw createError(400, `Product "${product.title}" is currently unavailable`);
       
       let price = Number(product.price);
       let stockToCheck = product.stock;
