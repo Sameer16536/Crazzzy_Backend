@@ -88,6 +88,12 @@ import cartRoutes from './routes/cartRoutes';
 import webhookRoutes from './routes/webhookRoutes';
 import rateLimit from 'express-rate-limit';
 
+// ── Webhook Route (MUST be before express.json body parser) ───────────────────
+// Razorpay signs the raw request body. If express.json() runs first, the body
+// is already parsed to an object, and re-stringifying it won't match the
+// original bytes. We use express.raw() here to preserve the exact raw buffer.
+app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
+
 // ── Rate Limiters ─────────────────────────────────────────────────────────────
 const orderLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -98,8 +104,7 @@ const orderLimiter = rateLimit({
 });
 
 // ── API Routes (prefixed at /api) ─────────────────────────────────────────────
-// Webhooks (Registered BEFORE body parser if they need raw body, but Razorpay works with JSON)
-app.use('/api/webhooks', webhookRoutes);
+// NOTE: /api/webhooks is already registered above, before the body parser.
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);

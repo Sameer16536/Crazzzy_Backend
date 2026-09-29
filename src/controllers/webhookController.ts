@@ -6,6 +6,10 @@ import { confirmOrderPayment } from './orderController';
 /**
  * Handle incoming Razorpay Webhooks.
  * This is crucial for reliability if the user closes the tab before verify-payment is called.
+ *
+ * IMPORTANT: This route must be mounted with express.raw({ type: 'application/json' })
+ * BEFORE express.json() in app.ts. Razorpay signs the raw request bytes — re-stringifying
+ * a parsed object changes key ordering and whitespace, breaking signature verification.
  */
 export async function handleRazorpayWebhook(req: Request, res: Response, next: NextFunction) {
   try {
@@ -17,9 +21,12 @@ export async function handleRazorpayWebhook(req: Request, res: Response, next: N
       return res.status(400).json({ status: 'error', message: 'Unauthorized' });
     }
 
-    // Verify signature
+    // req.body is a raw Buffer (thanks to express.raw() in app.ts).
+    // We must verify against the exact original bytes.
+    const rawBody = req.body instanceof Buffer ? req.body : Buffer.from(JSON.stringify(req.body));
+
     const shasum = crypto.createHmac('sha256', secret);
-    shasum.update(JSON.stringify(req.body));
+    shasum.update(rawBody);
     const digest = shasum.digest('hex');
 
     if (signature !== digest) {
@@ -27,32 +34,53 @@ export async function handleRazorpayWebhook(req: Request, res: Response, next: N
       return res.status(400).json({ status: 'error', message: 'Invalid signature' });
     }
 
-    const event = req.body.event;
+    // Parse the verified raw payload
+    const payload = JSON.parse(rawBody.toString('utf8'));
+    const event: string = payload.event;
     console.log(`[Webhook] Received Razorpay event: ${event}`);
 
-    // Handle specific events
-    // order.paid is usually the best one for our flow
-    if (event === 'order.paid' || event === 'payment.captured') {
-      const { order_id, id: payment_id } = req.body.payload.payment.entity;
-      
-      // Find order by Razorpay Order ID
-      const order = await prisma.order.findFirst({
-        where: { paymentId: order_id }
-      });
+    if (event === 'order.paid') {
+      // For 'order.paid', Razorpay sends both order and payment entities.
+      // The canonical order ID lives on the order entity; payment ID on the payment entity.
+      const orderId: string = payload.payload?.order?.entity?.id;
+      const paymentId: string = payload.payload?.payment?.entity?.id;
 
+      if (!orderId || !paymentId) {
+        console.warn('[Webhook] order.paid payload missing order/payment entity IDs');
+        return res.json({ status: 'ok' });
+      }
+
+      const order = await prisma.order.findFirst({ where: { paymentId: orderId } });
       if (order) {
         console.log(`[Webhook] Processing confirmation for Order #${order.id}`);
-        await confirmOrderPayment(order.id, payment_id);
+        await confirmOrderPayment(order.id, paymentId);
       } else {
-        console.warn(`[Webhook] No matching order found for Razorpay Order ID: ${order_id}`);
+        console.warn(`[Webhook] No matching order found for Razorpay Order ID: ${orderId}`);
+      }
+    } else if (event === 'payment.captured') {
+      // For 'payment.captured', order_id is nested inside the payment entity.
+      const orderId: string = payload.payload?.payment?.entity?.order_id;
+      const paymentId: string = payload.payload?.payment?.entity?.id;
+
+      if (!orderId || !paymentId) {
+        console.warn('[Webhook] payment.captured payload missing order_id or payment id');
+        return res.json({ status: 'ok' });
+      }
+
+      const order = await prisma.order.findFirst({ where: { paymentId: orderId } });
+      if (order) {
+        console.log(`[Webhook] Processing confirmation for Order #${order.id}`);
+        await confirmOrderPayment(order.id, paymentId);
+      } else {
+        console.warn(`[Webhook] No matching order found for Razorpay Order ID: ${orderId}`);
       }
     }
 
-    // Always respond with 200 to Razorpay
+    // Always respond 200 — Razorpay will retry on non-2xx responses
     res.json({ status: 'ok' });
   } catch (err: any) {
     console.error('[Webhook] Error:', err.message);
-    // Still return 200 to Razorpay to prevent retries of invalid payloads
+    // Return 200 even on processing errors to prevent infinite Razorpay retries
     res.status(200).json({ status: 'error', message: 'Internal processing error' });
   }
 }

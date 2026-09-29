@@ -3,6 +3,7 @@ import { prisma } from '../config/db';
 import { createError } from '../middlewares/errorMiddleware';
 import { OrderStatus, Role } from '@prisma/client';
 import { sendOrderShippedEmail, sendOrderDeliveredEmail } from '../config/mail';
+import { razorpay } from './orderController';
 
 export async function getDashboardStats(req: Request, res: Response, next: NextFunction) {
   try {
@@ -86,6 +87,28 @@ export async function updateOrderStatus(req: Request, res: Response, next: NextF
 
     // If status is being changed to CANCELLED and it wasn't already CANCELLED
     if (status === OrderStatus.CANCELLED && order.status !== OrderStatus.CANCELLED) {
+
+      // HANDLE RAZORPAY REFUND IF ORDER WAS ALREADY PAID
+      if (order.status === OrderStatus.PAID && order.paymentId) {
+        if (!razorpay) throw createError(500, 'Razorpay not configured — cannot process refund');
+
+        try {
+          console.log(`[Admin Refund] Initiating refund for Payment ID: ${order.paymentId}, Amount: ${order.totalAmount}`);
+          await razorpay.payments.refund(order.paymentId, {
+            amount: Math.round(Number(order.totalAmount) * 100),
+            notes: { reason: 'Admin cancelled order' }
+          });
+        } catch (refundErr: any) {
+          console.error('[Admin Refund] Razorpay error:', JSON.stringify(refundErr, null, 2));
+
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[Admin Refund] Dev/Test: Refund failed (likely fake Payment ID), proceeding with cancellation.');
+          } else {
+            throw createError(500, refundErr.description || 'Refund via Razorpay failed. Contact support.');
+          }
+        }
+      }
+
       await prisma.$transaction(async (tx) => {
         // Update status
         await tx.order.update({
@@ -108,7 +131,7 @@ export async function updateOrderStatus(req: Request, res: Response, next: NextF
           }
         }
       });
-      
+
       return res.json({ success: true, message: `Order cancelled and stock restored.` });
     }
 

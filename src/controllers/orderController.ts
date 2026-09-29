@@ -16,6 +16,9 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
   });
 }
 
+// Export so other controllers (e.g. adminController) can reuse the same instance
+export { razorpay };
+
 export const createOrderValidation = [
   body('items').isArray({ min: 1 }).withMessage('items must be a non-empty array'),
   body('items.*.productId').isInt({ min: 1 }).withMessage('Each item must have a valid productId'),
@@ -154,12 +157,9 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
         }
       });
 
-      if (couponCode) {
-        await tx.coupon.update({
-          where: { code: couponCode },
-          data: { usedCount: { increment: 1 } }
-        });
-      }
+      // NOTE: Coupon usedCount is intentionally NOT incremented here.
+      // We only count usage after payment is confirmed (see confirmOrderPayment).
+      // This prevents abandoned checkouts from burning coupon slots.
 
       return order;
     });
@@ -352,6 +352,14 @@ export async function confirmOrderPayment(orderId: number, razorpayPaymentId: st
           throw createError(400, `Insufficient stock for "${item.product.title}" in order #${order.id}`);
         }
       }
+    }
+
+    // 3. Increment coupon usedCount now that payment is confirmed
+    if (order.couponCode) {
+      await tx.coupon.update({
+        where: { code: order.couponCode },
+        data: { usedCount: { increment: 1 } }
+      });
     }
   });
 
